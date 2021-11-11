@@ -77,9 +77,10 @@ if __name__ == "__main__":
     parser.add_argument("--num-layers", type=int, default=6)
     parser.add_argument("--dim-feedforward", type=int, default=256)
     parser.add_argument("--precision", type=int, default=16)
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
-    seed_everything(0)
+    seed_everything(args.seed)
 
     model = ClipDecoder(
         vocab_size=get_tokenizer().num_tokens,
