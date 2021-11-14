@@ -43,3 +43,18 @@ text = model(encoded)
 print(text)
 # Probably some nonsense, because we used a dummy image.
 ```
+
+
+## Pretrained Models
+
+I've pretrained a few models, which are hosted in Google Drive:
+* [https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing](clip-text-decoder-5-epochs.zip)
+<!-- * [https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing](clip-text-decoder-10-epochs.zip)
+* [https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing](clip-text-decoder-20-epochs.zip) -->
+
+
+## Shortcomings
+
+* Only works well with COCO-style images.  If you go outside the distribution of COCO objects, you'll get nonsense text captions.
+* Relatively short training time.  Even within the COCO domain, you'll occasionally see incorrect captions.  Quite a few captions will have bad grammar, repetitive descriptors, etc.
+* 
