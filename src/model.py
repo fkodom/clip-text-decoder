@@ -2,7 +2,7 @@ from __future__ import annotations
 import io
 import math
 import os
-import pickle
+import pickle5 as pickle
 import tempfile
 from typing import Optional, Tuple
 from zipfile import ZipFile
@@ -77,6 +77,7 @@ class ClipDecoder(LightningModule):
         dropout: float = 0.1,
     ):
         super().__init__()
+        self.norm = nn.BatchNorm1d(embedding_size)
         self.embedding = TokenEmbedding(vocab_size, embedding_size)
         self.positional_encoding = PositionalEncoding(embedding_size, dropout=dropout)
         self.transformer = nn.TransformerDecoder(
@@ -106,6 +107,8 @@ class ClipDecoder(LightningModule):
     ) -> Tensor:
         embeddings = self.embedding(tgt)
         encodings = self.positional_encoding(embeddings)
+        memory = self.norm(memory.permute(1, 2, 0)).permute(2, 0, 1)
+
         decoded = self.transformer(
             encodings,
             memory,
@@ -192,7 +195,8 @@ class ClipDecoderInferenceModel:
 
             model.save(model_path)
             with open(tokenizer_path, "wb") as f:
-                pickle.dump(self.tokenizer, f)
+                # Protocol < 5 for compatibility with lower Python versions (Colab)
+                pickle.dump(self.tokenizer, f, protocol=4)
 
             with ZipFile(path, "w") as zipfile:
                 zipfile.write(model_path, arcname=self._model_path)

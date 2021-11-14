@@ -4,7 +4,7 @@ import multiprocessing as mp
 import os
 from typing import List, Tuple
 
-from pytorch_lightning import callbacks, plugins, seed_everything, Trainer
+from pytorch_lightning import callbacks, seed_everything, Trainer
 import torch
 from torch import Tensor
 from torch.nn.utils.rnn import pad_sequence
@@ -18,7 +18,6 @@ from src.tokenizer import Tokenizer
 @lru_cache()
 def load_dataset(training: bool = True):
     dataset: Dataset = ClipCocoCaptionsDataset()
-    dataset = Subset(dataset, torch.arange(50000).tolist())
     # Deterministically split into train/val subsets
     torch.manual_seed(0)
     indices = torch.randperm(len(dataset)).tolist()
@@ -31,18 +30,23 @@ def get_tokenizer() -> Tokenizer:
     ds = load_dataset(training=True)
     return Tokenizer.from_texts(
         texts=(ds[i][1] for i in range(len(ds))),
-        language="en",
+        language="en_core_web_sm",
     )
 
 
-def collate_fn(batch: List[Tuple[Tensor, str]]) -> Tuple[Tensor, Tensor]:
+def collate_fn(
+    batch: List[Tuple[Tensor, str]],
+    max_len: int = 128,
+) -> Tuple[Tensor, Tensor]:
     def to_tensor(text: str) -> Tensor:
         line = text.rstrip("\n\r")
-        return get_tokenizer().tokenize(f"BOS {line} EOS")
+        tensor = get_tokenizer().tokenize(f"BOS {line} EOS")
+        return tensor[:max_len]
 
-    src = torch.stack([torch.from_numpy(sample[0]) for sample in batch], dim=0).reshape(
-        1, len(batch), -1
-    )
+    src = torch.stack(
+        [torch.from_numpy(sample[0]) for sample in batch],
+        dim=0,
+    ).reshape(1, len(batch), -1)
     padding_value = get_tokenizer().stoi["PAD"]
     tgt = pad_sequence(
         [to_tensor(sample[1]) for sample in batch], padding_value=padding_value
@@ -50,12 +54,13 @@ def collate_fn(batch: List[Tuple[Tensor, str]]) -> Tuple[Tensor, Tensor]:
     return src, tgt
 
 
-def get_dataloader(batch_size: int = 128, training: bool = True):
+def get_dataloader(batch_size: int = 64, training: bool = True):
     return DataLoader(
         dataset=load_dataset(training=training),
         batch_size=batch_size,
         num_workers=mp.cpu_count(),
         collate_fn=collate_fn,
+        shuffle=training,
     )
 
 
@@ -64,9 +69,8 @@ def show_sample_predictions(model: ClipDecoderInferenceModel, n: int = 10):
     for i in range(n):
         encoding, text = ds[i]
         pred = model(torch.from_numpy(encoding))
-        print(f"True: {text}")
         print(f"Pred: {pred}")
-        print()
+        print(f"True: {text}")
 
 
 if __name__ == "__main__":
@@ -74,8 +78,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-epochs", type=int, default=5)
-    parser.add_argument("--num-layers", type=int, default=6)
-    parser.add_argument("--dim-feedforward", type=int, default=256)
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--accumulate-grad-batches", type=int, default=4)
+    parser.add_argument("--num-layers", type=int, default=3)
+    parser.add_argument("--dim-feedforward", type=int, default=128)
     parser.add_argument("--precision", type=int, default=16)
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
@@ -93,18 +99,20 @@ if __name__ == "__main__":
         devices=-1,
         strategy="ddp",
         precision=args.precision,
+        accumulate_grad_batches=args.accumulate_grad_batches,
         logger=True,
         callbacks=[
             callbacks.ModelCheckpoint(monitor="validation_loss"),
             callbacks.EarlyStopping(monitor="validation_loss"),
         ],
-        plugins=[
-            plugins.DDPPlugin(find_unused_parameters=False),
-        ],
     )
 
     # Train the model, and then load the best-performing state dictionary.
-    trainer.fit(model, get_dataloader(training=True), get_dataloader(training=False))
+    trainer.fit(
+        model,
+        get_dataloader(training=True, batch_size=args.batch_size),
+        get_dataloader(training=False, batch_size=args.batch_size),
+    )
     assert trainer.checkpoint_callback is not None
     checkpoint = torch.load(trainer.checkpoint_callback.best_model_path)
     model.load_state_dict(checkpoint["state_dict"])

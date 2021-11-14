@@ -1,27 +1,31 @@
 from __future__ import annotations
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
+import io
 import json
 import os
 import pickle
 import requests
-from typing import List, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 from zipfile import ZipFile
 
 import clip
+import numpy as np
+from PIL import Image
 import torch
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-
 COCO_ANNOTATIONS_URL = (
     "http://images.cocodataset.org/annotations/annotations_trainval2014.zip"
 )
 
-
-@lru_cache()
-def get_device():
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+BUILD_DATASET_MESSAGE = """
+Building CLIP encodings for {dataset} dataset. This may take an hour or more 
+(with a GPU). The result will be cached so that subsequent calls are fast.
+"""
 
 
 class ClipCocoCaptionsDataset(Dataset):
@@ -53,44 +57,110 @@ class ClipCocoCaptionsDataset(Dataset):
             zip.extract("annotations/captions_train2014.json", path=self.root)
             zip.extract("annotations/captions_val2014.json", path=self.root)
 
+    def _load_coco_captions(self, split: str) -> Dict:
+        path = os.path.join(self.root, f"annotations/captions_{split}2014.json")
+        with open(path) as f:
+            return json.load(f)
+
     @torch.cuda.amp.autocast()
     @torch.no_grad()
     def _build(self, cache: bool = True):
+        # TODO: Clean this up a bit, and remove hard-coded values below.
+        # Currently, this function is not the easiest to read... :(
+
         self._download()
-        with open(os.path.join(self.root, "annotations/captions_train2014.json")) as f:
-            train_captions = json.load(f)
-        with open(os.path.join(self.root, "annotations/captions_val2014.json")) as f:
-            val_captions = json.load(f)
-        captions = train_captions["annotations"] + val_captions["annotations"]
-        texts: List[str] = [a["caption"] for a in captions]
 
-        print("Loading CLIP model...")
-        clip_model, _ = clip.load("ViT-B/32", device=get_device(), jit=False)
+        print("Extracting text captions and image URLs...")
+        train_captions = self._load_coco_captions(split="train")
+        val_captions = self._load_coco_captions(split="val")
 
-        print(f"Getting CLIP input tokens...")
-        tokens = clip.tokenize(texts)
+        images = train_captions["images"] + val_captions["images"]
+        annotations = train_captions["annotations"] + val_captions["annotations"]
+        encodings = _build_clip_encodings(images)
+        data = _compile_clip_data(images, annotations, encodings)
 
-        print(f"Getting CLIP text encodings...")
-        encodings = []
-        loader = DataLoader(tokens, batch_size=1024)
-        for tokens_batch in tqdm(loader, desc="CLIP Encodings"):
-            x = tokens_batch.to(device=get_device())
-            y = clip_model.encode_text(x).float().cpu()
-            encodings += list(y.squeeze().numpy())
-
-        data = [(encoding, text) for encoding, text in zip(encodings, texts)]
         if cache:
             with open(self.cache_path, "wb") as fb:
                 pickle.dump(data, fb)
 
-    def _load(self):
-        if not os.path.exists(self.cache_path):
-            print(
-                "Building CLIP encodings for COCO Captions dataset. "
-                "This will take several minutes (with a GPU) the first time this "
-                "happens. The result will be cached so that subsequent calls are fast."
-            )
-            self._build()
+    def _load(self, cache: bool = True, force_rebuild: bool = False):
+        if force_rebuild or not os.path.exists(self.cache_path):
+            print(BUILD_DATASET_MESSAGE.format(dataset="CocoCaptions"))
+            self._build(cache=cache)
 
         with open(self.cache_path, "rb") as f:
             return pickle.load(f)
+
+
+@lru_cache()
+def get_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+@lru_cache()
+def load_clip(name: str = "ViT-B/32"):
+    print("Loading CLIP model...")
+    return clip.load(name, jit=False)
+
+
+def _group_captions_by_image_id(annotations: Sequence[Dict]) -> Dict[int, List[str]]:
+    out: Dict[int, List[str]] = defaultdict(list)
+    for ann in annotations:
+        image_id = ann["image_id"]
+        out[image_id].append(ann["caption"])
+
+    return out
+
+
+def _get_image_from_url(url: str) -> Tensor:
+    response = requests.get(url)
+    bytes_io = io.BytesIO(response.content)
+    _, clip_preprocessor = load_clip()
+    return clip_preprocessor(Image.open(bytes_io))
+
+
+def _encode_coco_images(urls: List[str]) -> Tensor:
+    pool = ThreadPoolExecutor()
+    images = list(pool.map(_get_image_from_url, urls))
+    device = get_device()
+    inputs = torch.stack([image for image in images], dim=0).to(device)
+    clip_model, _ = load_clip()
+    return clip_model.encode_image(inputs)
+
+
+def _build_clip_encodings(
+    images: Sequence[Dict], batch_size: int = 16
+) -> List[Optional[np.ndarray]]:
+    _ = load_clip()
+
+    urls: List[str] = [i["coco_url"] for i in images]
+    loader = DataLoader(urls, batch_size=batch_size)
+
+    print(f"Computing CLIP image encodings...")
+    encodings = []
+    for urls_batch in tqdm(loader):
+        try:
+            encodings += list(_encode_coco_images(urls_batch).cpu().numpy())
+        except:
+            encodings += len(urls_batch) * [None]
+
+    return encodings
+
+
+def _compile_clip_data(
+    images: Sequence[Dict],
+    annotations: Sequence[Dict],
+    encodings: Sequence[Optional[np.ndarray]],
+) -> List[Tuple[np.ndarray, str]]:
+    print("Compiling encodings with text captions...")
+    captions = _group_captions_by_image_id(annotations)
+
+    data = []
+    for encoding, image in tqdm(zip(encodings, images), total=len(encodings)):
+        if encoding is None:
+            continue
+
+        for caption in captions[image["id"]]:
+            data.append((encoding, caption))
+
+    return data

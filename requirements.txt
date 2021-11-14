@@ -1,4 +1,5 @@
 dill
+pickle5
 pytorch-lightning
 spacy
 torch>=1.8

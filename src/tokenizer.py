@@ -14,13 +14,6 @@ StringTokenizer = Callable[[str], List[str]]
 SPECIALS_STOI = {"UNK": 0, "PAD": 1, "BOS": 2, "EOS": 3}
 
 
-def _get_string_tokenizer(
-    str_tokenizer: str = "spacy",
-    language: str = "en",
-) -> Callable[[str], List[str]]:
-    return _get_tokenizer_torchtext(tokenizer=str_tokenizer, language=language)
-
-
 class Tokenizer:
     def __init__(self):
         self._str_tokenizer: Optional[StringTokenizer] = None
@@ -53,8 +46,8 @@ class Tokenizer:
         specials: Sequence[str] = list(SPECIALS_STOI),
     ) -> Tokenizer:
         tokenizer = Tokenizer()
-        tokenizer._str_tokenizer = _get_string_tokenizer(
-            str_tokenizer=str_tokenizer,
+        tokenizer._str_tokenizer = _get_tokenizer_torchtext(
+            tokenizer=str_tokenizer,
             language=language,
         )
         _vocab = build_vocab_from_iterator(
@@ -75,8 +68,8 @@ class Tokenizer:
         min_freq: int = 1,
         specials: Sequence[str] = list(SPECIALS_STOI),
     ) -> Tokenizer:
-        _str_tokenizer = _get_string_tokenizer(
-            str_tokenizer=str_tokenizer,
+        _str_tokenizer = _get_tokenizer_torchtext(
+            tokenizer=str_tokenizer,
             language=language,
         )
         return cls.from_iterator(
