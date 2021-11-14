@@ -25,6 +25,14 @@ cd clip-text-decoder
 pip install .
 ```
 
+**NOTE:** You'll also need to install `openai/CLIP` to encode images with CLIP.  This is also required by `ClipCocoCaptionsDataset` to build the captions dataset the first time (cached for subsequent calls).
+
+```bash
+pip install "clip @ git+https://github.com/openai/CLIP.git"
+```
+
+For technical reasons, the CLIP dependency can't be included in the PyPI package, since it's not an officially published package.
+
 
 ## Training
 
@@ -76,6 +84,7 @@ print(text)
 I've pretrained a few models, which are hosted in Google Drive:
 * [clip-text-decoder-5-epochs.zip](https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing)
 * [clip-text-decoder-10-epochs.zip](https://drive.google.com/file/d/1M-ib9RQEpC2mX8oFXGkQJpymaTxKFinG/view?usp=sharing)
+* [clip-text-decoder-20-epochs.zip](https://drive.google.com/file/d/1CdfPg223lP0zYu7a3uPEZ0weCu6HnL73/view?usp=sharing)
 
 
 ## Examples

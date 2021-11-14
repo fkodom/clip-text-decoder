@@ -32,7 +32,6 @@ setup(
         "spacy",
         "torch>=1.8",
         "torchtext",
-        "clip @ git+https://github.com/openai/CLIP.git",
     ],
     extras_require={
         "test": [
