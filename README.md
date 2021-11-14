@@ -1,5 +1,7 @@
 # clip-text-decoder
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/13MJsNlff1Ew5_rJHWtpkYamVg30oyRTO?usp=sharing)
+
 Generate text captions for images from their CLIP embeddings.  Includes PyTorch model code and example training script.
 
 ## Training
@@ -48,13 +50,27 @@ print(text)
 ## Pretrained Models
 
 I've pretrained a few models, which are hosted in Google Drive:
-* [https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing](clip-text-decoder-5-epochs.zip)
-<!-- * [https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing](clip-text-decoder-10-epochs.zip)
-* [https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing](clip-text-decoder-20-epochs.zip) -->
+* [clip-text-decoder-5-epochs.zip](https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing)
+* [clip-text-decoder-10-epochs.zip](https://drive.google.com/file/d/1M-ib9RQEpC2mX8oFXGkQJpymaTxKFinG/view?usp=sharing)
 
+
+## Examples
+
+Example captions were computed with the `clip-text-decoder-10-epochs.zip` model above.
+
+"A man riding a wave on top of a surfboard."
+
+![A surfer riding a wave](http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg)
+
+"A baseball player swinging a bat on top of a field."
+
+![Baseball player](http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg)
+
+"A dog running across a field with a frisbee."
+
+![Dog with frisbee](http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg)
 
 ## Shortcomings
 
 * Only works well with COCO-style images.  If you go outside the distribution of COCO objects, you'll get nonsense text captions.
 * Relatively short training time.  Even within the COCO domain, you'll occasionally see incorrect captions.  Quite a few captions will have bad grammar, repetitive descriptors, etc.
-* 
