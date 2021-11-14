@@ -7,6 +7,7 @@ import tempfile
 from typing import Optional, Tuple
 from zipfile import ZipFile
 
+import gdown
 from pytorch_lightning import LightningModule
 import torch
 from torch import Tensor, nn, optim
@@ -15,6 +16,10 @@ import torch.nn.functional as F
 from clip_text_decoder.tokenizer import Tokenizer, SPECIALS_STOI
 
 PADDING_VALUE = SPECIALS_STOI["PAD"]
+PRETRAINED_INFERENCE_MODEL_PATH = (
+    "https://drive.google.com/uc?id=1CdfPg223lP0zYu7a3uPEZ0weCu6HnL73"
+    # "https://drive.google.com/file/d/1CdfPg223lP0zYu7a3uPEZ0weCu6HnL73/view?usp=sharing"
+)
 
 
 def positional_encoding(
@@ -213,6 +218,25 @@ class ClipDecoderInferenceModel:
             model=torch.jit.load(model_buffer, map_location=device),
             tokenizer=pickle.load(tokenizer_buffer),
         )
+
+    @classmethod
+    def download_pretrained(cls, dest: str = None) -> ClipDecoderInferenceModel:
+        with tempfile.TemporaryDirectory() as tempdir:
+            if dest is None:
+                dest = os.path.join(tempdir, "model.zip")
+            gdown.download(PRETRAINED_INFERENCE_MODEL_PATH, dest)
+
+            try:
+                return cls.load(dest)
+            except ModuleNotFoundError:
+                import sys
+                import clip_text_decoder
+
+                # For backwards compatibility -- early releases and Colab notebooks
+                # used the 'src' namespace, so 'pickle' fails to load the underlying
+                # 'Tokenizer' object.  Register 'clip_text_decoder/' as 'src/' here.
+                sys.modules["src"] = clip_text_decoder
+                return cls.load(dest)
 
     @torch.cuda.amp.autocast()
     @torch.no_grad()

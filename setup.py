@@ -26,6 +26,7 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=[
         "dill",
+        "gdown",
         "numpy",
         "pickle5",
         "pytorch-lightning",
