@@ -1,4 +1,6 @@
-coco-captions/
+*.zip
+coco-captions*/
+lightning_logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
