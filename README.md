@@ -81,15 +81,23 @@ print(text)
 
 ## Pretrained Models
 
-I've pretrained a few models, which are hosted in Google Drive:
-* [clip-text-decoder-5-epochs.zip](https://drive.google.com/file/d/1-6rt3Yb4y-F84wSwzkqeOj6mdfHv0dG0/view?usp=sharing)
-* [clip-text-decoder-10-epochs.zip](https://drive.google.com/file/d/1M-ib9RQEpC2mX8oFXGkQJpymaTxKFinG/view?usp=sharing)
-* [clip-text-decoder-20-epochs.zip](https://drive.google.com/file/d/1CdfPg223lP0zYu7a3uPEZ0weCu6HnL73/view?usp=sharing)
+A pretrained CLIP decoder is hosted in my Google Drive, and can easily be downloaded by:
+
+```python
+from clip_text_decoder.model import ClipDecoderInferenceModel
+
+model = ClipDecoderInferenceModel.download_pretrained()
+```
+
+To cache the pretrained model locally, so that it's not re-downloaded each time:
+```python
+model = ClipDecoderInferenceModel.download_pretrained("/path/to/model.zip")
+```
 
 
 ## Examples
 
-Example captions were computed with the `clip-text-decoder-10-epochs.zip` model above.
+Example captions were computed with the pretrained model above.
 
 "A man riding a wave on top of a surfboard."
 
