@@ -4,6 +4,30 @@
 
 Generate text captions for images from their CLIP embeddings.  Includes PyTorch model code and example training script.
 
+
+## Installation
+
+Install for easier access to the following objects/classes:
+* `clip_text_decoder.datasets.ClipCocoCaptionsDataset`
+* `clip_text_decoder.models.ClipDecoder`
+* `clip_text_decoder.models.ClipDecoderInferenceModel`
+* `clip_text_decoder.tokenizer.Tokenizer`
+
+The `train.py` script will not be available in the installed package, since it's located in the root directory.  To train new models, either clone this repository or recreate `train.py` locally.
+
+Using `pip`:
+```bash
+pip install clip-text-decoder
+```
+
+From source:
+```bash
+git clone https://github.com/fkodom/clip-text-decoder.git
+cd clip-text-decoder
+pip install .
+```
+
+
 ## Training
 
 Launch your own training session using the provided script (`train.py`):
@@ -29,7 +53,7 @@ import clip
 from PIL import Image
 import torch
 
-from src.model import ClipDecoderInferenceModel
+from clip_text_decoder.model import ClipDecoderInferenceModel
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = ClipDecoderInferenceModel.load("path/to/model.zip").to(device)
