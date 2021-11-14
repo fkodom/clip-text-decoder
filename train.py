@@ -10,9 +10,9 @@ from torch import Tensor
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, Dataset, Subset
 
-from src.dataset import ClipCocoCaptionsDataset
-from src.model import ClipDecoder, ClipDecoderInferenceModel
-from src.tokenizer import Tokenizer
+from clip_text_decoder.dataset import ClipCocoCaptionsDataset
+from clip_text_decoder.model import ClipDecoder, ClipDecoderInferenceModel
+from clip_text_decoder.tokenizer import Tokenizer
 
 
 @lru_cache()

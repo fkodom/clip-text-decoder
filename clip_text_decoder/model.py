@@ -12,7 +12,7 @@ import torch
 from torch import Tensor, nn, optim
 import torch.nn.functional as F
 
-from src.tokenizer import Tokenizer, SPECIALS_STOI
+from clip_text_decoder.tokenizer import Tokenizer, SPECIALS_STOI
 
 PADDING_VALUE = SPECIALS_STOI["PAD"]
 
