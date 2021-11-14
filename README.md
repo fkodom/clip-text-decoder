@@ -1,7 +1,5 @@
 # clip-text-decoder
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/13MJsNlff1Ew5_rJHWtpkYamVg30oyRTO?usp=sharing)
-
 Generate text captions for images from their CLIP embeddings.  Includes PyTorch model code and example training script.
 
 
@@ -29,6 +27,8 @@ pip install .
 
 
 ## Training
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/13MJsNlff1Ew5_rJHWtpkYamVg30oyRTO?usp=sharing)
 
 Launch your own training session using the provided script (`train.py`):
 ```bash
