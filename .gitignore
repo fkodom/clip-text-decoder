@@ -1,6 +1,7 @@
 *.zip
 coco-captions*/
 lightning_logs/
+models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
