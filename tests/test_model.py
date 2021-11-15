@@ -59,7 +59,7 @@ def test_inference_model_forward(embedding_size: int):
 
     memory = torch.randn(1, 1, embedding_size)
     text = inference_model(memory)
-    assert isinstance(text, str) and len(text) > 4
+    assert isinstance(text, str)
 
 
 def test_inference_model_save():
