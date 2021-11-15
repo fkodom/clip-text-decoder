@@ -3,6 +3,23 @@
 Generate text captions for images from their CLIP embeddings.  Includes PyTorch model code and example training script.
 
 
+## Example Predictions
+
+Example captions were computed with the pretrained model mentioned below.
+
+"A man riding a wave on top of a surfboard."
+
+![A surfer riding a wave](http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg)
+
+"A baseball player swinging a bat on top of a field."
+
+![Baseball player](http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg)
+
+"A dog running across a field with a frisbee."
+
+![Dog with frisbee](http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg)
+
+
 ## Installation
 
 Install for easier access to the following objects/classes:
@@ -94,22 +111,6 @@ To cache the pretrained model locally, so that it's not re-downloaded each time:
 model = ClipDecoderInferenceModel.download_pretrained("/path/to/model.zip")
 ```
 
-
-## Examples
-
-Example captions were computed with the pretrained model above.
-
-"A man riding a wave on top of a surfboard."
-
-![A surfer riding a wave](http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg)
-
-"A baseball player swinging a bat on top of a field."
-
-![Baseball player](http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg)
-
-"A dog running across a field with a frisbee."
-
-![Dog with frisbee](http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg)
 
 ## Shortcomings
 
