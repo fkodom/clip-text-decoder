@@ -8,7 +8,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    continue-on-error: true
+    continue-on-error: false
 
     strategy:
       matrix:
@@ -28,6 +28,7 @@ jobs:
         run: |
           pip install torch==${{ matrix.torch }}
           pip install .[test]
+          python -m spacy download en_core_web_sm
           pip install "clip @ git+https://github.com/openai/CLIP.git"
 
       - name: Test
