@@ -23,7 +23,7 @@ COCO_ANNOTATIONS_URL = (
 )
 
 BUILD_DATASET_MESSAGE = """
-Building CLIP encodings for {dataset} dataset. This may take an hour or more 
+Building CLIP encodings for {dataset} dataset. This may take an hour or more
 (with a GPU). The result will be cached so that subsequent calls are fast.
 """
 
@@ -136,12 +136,12 @@ def _build_clip_encodings(
     urls: List[str] = [i["coco_url"] for i in images]
     loader = DataLoader(urls, batch_size=batch_size)
 
-    print(f"Computing CLIP image encodings...")
+    print("Computing CLIP image encodings...")
     encodings = []
     for urls_batch in tqdm(loader):
         try:
             encodings += list(_encode_coco_images(urls_batch).cpu().numpy())
-        except:
+        except Exception:
             encodings += len(urls_batch) * [None]
 
     return encodings
