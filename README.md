@@ -11,7 +11,7 @@ Example captions were computed with the pretrained model mentioned below.
 
 ![A surfer riding a wave](http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg)
 
-"A baseball player swinging a bat on top of a field."
+A baseball player is swinging a bat at a ball.
 
 ![Baseball player](http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg)
 
