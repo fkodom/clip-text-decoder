@@ -2,13 +2,16 @@ from __future__ import annotations
 from functools import lru_cache
 import multiprocessing as mp
 import os
+import random
 from typing import List, Tuple
 
 from pytorch_lightning import callbacks, seed_everything, Trainer
 import torch
 from torch import Tensor
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader
+from torchtext.data.metrics import bleu_score
+from tqdm import tqdm
 
 from clip_text_decoder.dataset import ClipCocoCaptionsDataset
 from clip_text_decoder.model import ClipDecoder, ClipDecoderInferenceModel
@@ -16,20 +19,15 @@ from clip_text_decoder.tokenizer import Tokenizer
 
 
 @lru_cache()
-def load_dataset(training: bool = True):
-    dataset: Dataset = ClipCocoCaptionsDataset()
-    # Deterministically split into train/val subsets
-    torch.manual_seed(0)
-    indices = torch.randperm(len(dataset)).tolist()
-    num_train = int(0.9 * len(dataset))
-    return Subset(dataset, (indices[:num_train] if training else indices[num_train:]))
+def load_dataset(split: str = "train") -> ClipCocoCaptionsDataset:
+    return ClipCocoCaptionsDataset(split=split)
 
 
 @lru_cache()
 def get_tokenizer() -> Tokenizer:
-    ds = load_dataset(training=True)
+    ds = load_dataset(split="train")
     return Tokenizer.from_texts(
-        texts=(ds[i][1] for i in range(len(ds))),
+        texts=(text for i in range(len(ds)) for text in ds[i][1]),
         language="en_core_web_sm",
     )
 
@@ -44,28 +42,29 @@ def collate_fn(
         return tensor[:max_len]
 
     src = torch.stack(
-        [torch.from_numpy(sample[0]) for sample in batch],
+        [torch.from_numpy(x) for x, _ in batch],
         dim=0,
     ).reshape(1, len(batch), -1)
     padding_value = get_tokenizer().stoi["PAD"]
     tgt = pad_sequence(
-        [to_tensor(sample[1]) for sample in batch], padding_value=padding_value
+        [to_tensor(random.choice(y)) for _, y in batch],
+        padding_value=padding_value,
     )
     return src, tgt
 
 
-def get_dataloader(batch_size: int = 64, training: bool = True):
+def get_dataloader(batch_size: int = 64, split: str = "train"):
     return DataLoader(
-        dataset=load_dataset(training=training),
+        dataset=load_dataset(split=split),
         batch_size=batch_size,
         num_workers=mp.cpu_count(),
         collate_fn=collate_fn,
-        shuffle=training,
+        shuffle=(split == "train"),
     )
 
 
 def show_sample_predictions(model: ClipDecoderInferenceModel, n: int = 10):
-    ds = load_dataset(training=False)
+    ds = load_dataset(split="val")
     for i in range(n):
         encoding, text = ds[i]
         pred = model(torch.from_numpy(encoding))
@@ -73,13 +72,28 @@ def show_sample_predictions(model: ClipDecoderInferenceModel, n: int = 10):
         print(f"True: {text}")
 
 
+def compute_bleu_score(model: ClipDecoderInferenceModel, verbose: bool = True) -> float:
+    ds = load_dataset(split="val")
+    tokenizer = model.tokenizer._str_tokenizer
+    assert tokenizer is not None
+
+    bleu = 0
+    for x, y in tqdm(ds, desc="BLEU", disable=(not verbose)):
+        candidate = tokenizer(model(torch.as_tensor(x)))
+        candidate = [x for x in candidate if not " " in x]
+        references = [tokenizer(ref) for ref in y]
+        bleu += bleu_score([candidate], [references])
+
+    return bleu / len(ds)
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-epochs", type=int, default=5)
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--accumulate-grad-batches", type=int, default=4)
+    parser.add_argument("--max-epochs", type=int, default=50)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--accumulate-grad-batches", type=int, default=2)
     parser.add_argument("--num-layers", type=int, default=3)
     parser.add_argument("--dim-feedforward", type=int, default=128)
     parser.add_argument("--precision", type=int, default=16)
@@ -93,6 +107,12 @@ if __name__ == "__main__":
         num_layers=args.num_layers,
         dim_feedforward=args.dim_feedforward,
     )
+
+    # model = ClipDecoder.load_from_checkpoint(
+    #     "lightning_logs/version_9/checkpoints/epoch=49-step=16199.ckpt",
+    #     vocab_size=get_tokenizer().num_tokens,
+    # )
+
     trainer = Trainer(
         max_epochs=args.max_epochs,
         accelerator="gpu",
@@ -102,16 +122,16 @@ if __name__ == "__main__":
         accumulate_grad_batches=args.accumulate_grad_batches,
         logger=True,
         callbacks=[
-            callbacks.ModelCheckpoint(monitor="validation_loss"),
-            callbacks.EarlyStopping(monitor="validation_loss"),
+            callbacks.ModelCheckpoint(monitor="validation_bleu", mode="max"),
+            callbacks.EarlyStopping(monitor="validation_bleu", mode="max", patience=5),
         ],
     )
 
     # Train the model, and then load the best-performing state dictionary.
     trainer.fit(
         model,
-        get_dataloader(training=True, batch_size=args.batch_size),
-        get_dataloader(training=False, batch_size=args.batch_size),
+        get_dataloader(split="train", batch_size=args.batch_size),
+        get_dataloader(split="val", batch_size=args.batch_size),
     )
     assert trainer.checkpoint_callback is not None
     checkpoint = torch.load(trainer.checkpoint_callback.best_model_path)
@@ -119,11 +139,13 @@ if __name__ == "__main__":
 
     # Build a self-contained inference model and generate a bunch of sample predictions.
     decoder = ClipDecoderInferenceModel(model=model, tokenizer=get_tokenizer())
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    decoder.to(device=device)
-    show_sample_predictions(decoder, n=25)
-
     # Save the inference model to our experiment logs directory.
     assert trainer.log_dir is not None
     inference_model_path = os.path.join(trainer.log_dir, "model.zip")
     decoder.save(inference_model_path)
+
+    # Get sample predictions, and compute the BLEU score for the model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    decoder.to(device=device)
+    show_sample_predictions(decoder, n=10)
+    print(f"BLEU score: {compute_bleu_score(decoder):.4f}")

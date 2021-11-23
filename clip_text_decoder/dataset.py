@@ -29,11 +29,12 @@ Building CLIP encodings for {dataset} dataset. This may take an hour or more
 
 
 class ClipCocoCaptionsDataset(Dataset):
-    def __init__(self, root: str = "./coco-captions"):
+    def __init__(self, root: str = "./coco-captions", split: str = "train"):
         super().__init__()
         self.root = root
+        self.split = split
         self.zip_path = os.path.join(root, "annotations.zip")
-        self.cache_path = os.path.join(root, "cache.pkl")
+        self.cache_path = os.path.join(root, f"cache-{split}.pkl")
 
         self.data: List[Tuple[Tensor, str]] = self._load()
 
@@ -57,8 +58,9 @@ class ClipCocoCaptionsDataset(Dataset):
             zip.extract("annotations/captions_train2014.json", path=self.root)
             zip.extract("annotations/captions_val2014.json", path=self.root)
 
-    def _load_coco_captions(self, split: str) -> Dict:
-        path = os.path.join(self.root, f"annotations/captions_{split}2014.json")
+    def _load_coco_captions(self) -> Dict:
+        self._download()
+        path = os.path.join(self.root, f"annotations/captions_{self.split}2014.json")
         with open(path) as f:
             return json.load(f)
 
@@ -67,15 +69,9 @@ class ClipCocoCaptionsDataset(Dataset):
     def _build(self, cache: bool = True):
         # TODO: Clean this up a bit, and remove hard-coded values below.
         # Currently, this function is not the easiest to read... :(
-
-        self._download()
-
         print("Extracting text captions and image URLs...")
-        train_captions = self._load_coco_captions(split="train")
-        val_captions = self._load_coco_captions(split="val")
-
-        images = train_captions["images"] + val_captions["images"]
-        annotations = train_captions["annotations"] + val_captions["annotations"]
+        labels = self._load_coco_captions()
+        images, annotations = labels["images"], labels["annotations"]
         encodings = _build_clip_encodings(images)
         data = _compile_clip_data(images, annotations, encodings)
 
@@ -151,16 +147,21 @@ def _compile_clip_data(
     images: Sequence[Dict],
     annotations: Sequence[Dict],
     encodings: Sequence[Optional[np.ndarray]],
-) -> List[Tuple[np.ndarray, str]]:
+) -> List[Tuple[np.ndarray, List[str]]]:
     print("Compiling encodings with text captions...")
     captions = _group_captions_by_image_id(annotations)
+    return [
+        (encoding, captions[image["id"]])
+        for encoding, image in zip(encodings, images)
+        if encoding is not None
+    ]
 
-    data = []
-    for encoding, image in tqdm(zip(encodings, images), total=len(encodings)):
-        if encoding is None:
-            continue
+    # data = []
+    # for encoding, image in tqdm(zip(encodings, images), total=len(encodings)):
+    #     if encoding is None:
+    #         continue
 
-        for caption in captions[image["id"]]:
-            data.append((encoding, caption))
+    #     for caption in captions[image["id"]]:
+    #         data.append((encoding, caption))
 
-    return data
+    # return data

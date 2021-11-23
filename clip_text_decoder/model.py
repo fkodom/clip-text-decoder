@@ -12,13 +12,14 @@ from pytorch_lightning import LightningModule
 import torch
 from torch import Tensor, nn, optim
 import torch.nn.functional as F
+from torchtext.data.metrics import bleu_score
 
 from clip_text_decoder.tokenizer import Tokenizer, SPECIALS_STOI
 
 PADDING_VALUE = SPECIALS_STOI["PAD"]
 PRETRAINED_INFERENCE_MODEL_PATH = (
-    "https://drive.google.com/uc?id=1CdfPg223lP0zYu7a3uPEZ0weCu6HnL73"
-    # "https://drive.google.com/file/d/1CdfPg223lP0zYu7a3uPEZ0weCu6HnL73/view?usp=sharing"
+    "https://drive.google.com/uc?id=1bYAog3ZFLiBZEPRLqBcy8J-gXp7NTPAY"
+    # https://drive.google.com/file/d/1bYAog3ZFLiBZEPRLqBcy8J-gXp7NTPAY/view?usp=sharing
 )
 
 
@@ -144,8 +145,10 @@ class ClipDecoder(LightningModule):
             input=logits.reshape(-1, logits.size(-1)),
             target=tgt_out.reshape(-1),
         )
+        bleu = compute_bleu_score(logits.argmax(dim=-1), tgt_out)
 
-        self.log("training_loss", loss)
+        self.log("training_loss", loss, on_step=False, on_epoch=True)
+        self.log("training_bleu", bleu, on_step=False, on_epoch=True)
         return loss
 
     @torch.no_grad()
@@ -166,8 +169,10 @@ class ClipDecoder(LightningModule):
             input=logits.reshape(-1, logits.size(-1)),
             target=tgt_out.reshape(-1),
         )
+        bleu = compute_bleu_score(logits.argmax(dim=-1), tgt_out)
 
-        self.log("validation_loss", loss)
+        self.log("validation_loss", loss, on_step=False, on_epoch=True)
+        self.log("validation_bleu", bleu, on_step=False, on_epoch=True)
         return loss
 
 
@@ -276,3 +281,15 @@ def create_tgt_masks(tgt: Tensor) -> Tuple[Tensor, Tensor]:
     tgt_padding_mask = (tgt == PADDING_VALUE).transpose(0, 1)
 
     return tgt_mask, tgt_padding_mask
+
+
+def compute_bleu_score(predictions: Tensor, targets: Tensor) -> float:
+    def _single_bleu_score(pred: Tensor, target: Tensor) -> float:
+        candidate = [str(x) for x in pred[pred != PADDING_VALUE].tolist()]
+        reference = [str(x) for x in target[target != PADDING_VALUE].tolist()]
+        return bleu_score([candidate], [[reference]])
+
+    return sum(
+        _single_bleu_score(prediction, target)
+        for prediction, target in zip(predictions.T, targets.T)
+    ) / len(predictions)
