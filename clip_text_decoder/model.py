@@ -10,9 +10,7 @@ import torch.nn.functional as F
 from torch import Tensor, optim
 from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
 
-from clip_text_decoder.tokenizer import SPECIALS_STOI
 
-PADDING_VALUE = SPECIALS_STOI["PAD"]
 PRETRAINED_INFERENCE_MODEL_PATH = (
     "https://drive.google.com/uc?id=1bYAog3ZFLiBZEPRLqBcy8J-gXp7NTPAY"
     # https://drive.google.com/file/d/1bYAog3ZFLiBZEPRLqBcy8J-gXp7NTPAY/view?usp=sharing
