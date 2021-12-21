@@ -110,7 +110,7 @@ class ClipDecoderInferenceModel:
         with tempfile.TemporaryDirectory() as tempdir:
             if dest is None:
                 dest = os.path.join(tempdir, "model.zip")
-            gdown.download(PRETRAINED_INFERENCE_MODEL_PATH, dest)
+            gdown.download(PRETRAINED_INFERENCE_MODEL_PATH, dest, quiet=False)
             return cls.load(dest)
 
     @torch.cuda.amp.autocast()
