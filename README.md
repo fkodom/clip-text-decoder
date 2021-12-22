@@ -11,11 +11,11 @@ Example captions were computed with the pretrained model mentioned below.
 
 ![A surfer riding a wave](http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg)
 
-A baseball player is swinging a bat at a ball.
+"A baseball player is swinging a bat at a ball."
 
 ![Baseball player](http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg)
 
-"A dog running across a field with a frisbee."
+"A dog jumping in the air to catch a frisbee."
 
 ![Dog with frisbee](http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg)
 
