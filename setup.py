@@ -29,6 +29,7 @@ setup(
         "gdown",
         "numpy",
         "pytorch-lightning",
+        "spacy",
         "torch>=1.8",
         "transformers",
     ],
