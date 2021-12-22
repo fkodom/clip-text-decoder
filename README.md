@@ -1,6 +1,6 @@
 # clip-text-decoder
 
-Generate text captions for images from their CLIP embeddings.  Includes PyTorch model code and example training script.
+Train an image captioner with 0.30 BLEU score in under an hour!  Includes PyTorch model code, example training script, and pre-trained model weights.
 
 
 ## Example Predictions
@@ -11,11 +11,11 @@ Example captions were computed with the pretrained model mentioned below.
 
 ![A surfer riding a wave](http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg)
 
-A baseball player is swinging a bat at a ball.
+"A baseball player is swinging a bat at a ball."
 
 ![Baseball player](http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg)
 
-"A dog running across a field with a frisbee."
+"A dog jumping in the air to catch a frisbee."
 
 ![Dog with frisbee](http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg)
 
@@ -23,10 +23,9 @@ A baseball player is swinging a bat at a ball.
 ## Installation
 
 Install for easier access to the following objects/classes:
-* `clip_text_decoder.datasets.ClipCocoCaptionsDataset`
-* `clip_text_decoder.models.ClipDecoder`
-* `clip_text_decoder.models.ClipDecoderInferenceModel`
-* `clip_text_decoder.tokenizer.Tokenizer`
+* `clip_text_decoder.dataset.ClipCocoCaptionsDataset`
+* `clip_text_decoder.model.ClipDecoder`
+* `clip_text_decoder.model.ClipDecoderInferenceModel`
 
 The `train.py` script will not be available in the installed package, since it's located in the root directory.  To train new models, either clone this repository or recreate `train.py` locally.
 
@@ -57,18 +56,21 @@ For technical reasons, the CLIP dependency can't be included in the PyPI package
 
 Launch your own training session using the provided script (`train.py`):
 ```bash
-python train.py --max-epochs 5
+python train.py --max-epochs 10
 ```
 
 Training CLI arguments, along with their default values:
 ```bash
---max-epochs 5  # (int)
---num-layers 6  # (int)
---dim-feedforward 256  # (int)
+--max-epochs 10  # (int)
+--batch-size 32  # (int)
+--accumulate-grad-batches 4  # (int)
 --precision 16  # (16 or 32)
 --seed 0  # (int)
 ```
 
+One epoch takes about 5 minutes using a T4 GPU, which is freely available in Google Colab.  After about 10 training epochs, you'll reach a BLEU-4 score of roughly 0.30.  So in under an hour, you can train an image captioning model that is competitive with (though not quite matching) state-of-the-art accuracy.
+
+**TODO:** Enable full end-to-end training, including the ClIP image backbone.  This will **dramatically** increase training time, since the image encodings can no longer be pre-computed.  But in theory, it should lead to higher overall accuracy of the model.
 
 ## Inference
 

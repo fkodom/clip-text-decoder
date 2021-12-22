@@ -25,14 +25,13 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     install_requires=[
-        "dill",
+        "datasets",
         "gdown",
         "numpy",
-        "pickle5",
         "pytorch-lightning",
         "spacy",
         "torch>=1.8",
-        "torchtext",
+        "transformers",
     ],
     extras_require={
         "test": [
