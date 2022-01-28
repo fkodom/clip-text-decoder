@@ -4,9 +4,14 @@ import tempfile
 
 import pytest
 import torch
+from PIL import Image
 from transformers import GPT2Tokenizer
 
-from clip_text_decoder.model import ClipDecoder, ClipDecoderInferenceModel
+from clip_text_decoder.model import (
+    ClipDecoder,
+    ClipDecoderInferenceModel,
+    ImageCaptionInferenceModel,
+)
 
 
 GPT2_TYPES = ["distilgpt2"]
@@ -34,8 +39,7 @@ def test_model_forward(gpt2_type: str):
     encoder_hidden_states = torch.randn(BATCH_SIZE, 1, EMBEDDING_DIM)
 
     out = model.forward(
-        input_ids=input_ids,
-        encoder_hidden_states=encoder_hidden_states,
+        input_ids=input_ids, encoder_hidden_states=encoder_hidden_states,
     )
     batch_size, seq_len, out_size = out.logits.shape
     assert batch_size == BATCH_SIZE
@@ -80,3 +84,11 @@ def test_inference_model_save_load(gpt2_type: str):
 
 def test_inference_model_download_pretrained():
     _ = ClipDecoderInferenceModel.download_pretrained()
+
+
+def test_image_caption_model_predict():
+    image = Image.new("RGB", (224, 224))
+    model = ImageCaptionInferenceModel.download_pretrained()
+    pred = model(image)
+    assert isinstance(pred, str)
+    assert len(str) > 0
