@@ -1,6 +1,6 @@
 # clip-text-decoder
 
-Train an image captioner with 0.30 BLEU score in under an hour!  Includes PyTorch model code, example training script, and pre-trained model weights.
+Train an image captioner with 0.30 BLEU score in under an hour! Includes PyTorch model code, example training script, and pre-trained model weights.
 
 
 ## Example Predictions
@@ -49,6 +49,62 @@ pip install "clip @ git+https://github.com/openai/CLIP.git"
 
 For technical reasons, the CLIP dependency can't be included in the PyPI package, since it's not an officially published package.
 
+## Inference
+
+### Pretrained Caption Model
+```python
+from PIL import Image
+import torch
+
+from clip_text_decoder.model import ImageCaptionInferenceModel
+
+model = ImageCaptionInferenceModel.download_pretrained()
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model.to(device)
+
+image = Image.open("path/to/image.jpeg")
+caption = model(image)
+```
+
+To cache the pretrained model locally, so that it's not re-downloaded each time:
+```python
+model = ImageCaptionInferenceModel.download_pretrained("/path/to/model.zip")
+```
+
+### Pretrained Decoder Model
+```python
+import clip
+from PIL import Image
+import torch
+
+from clip_text_decoder.model import ClipDecoderInferenceModel
+
+model = ClipDecoderInferenceModel.download_pretrained()
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model.to(device)
+
+clip_model, clip_preprocessor = clip.load("ViT-B/32", device=device, jit=False)
+
+image = Image.open("path/to/image.jpeg")
+preprocessed = clip_preprocessor(dummy_image).to(device)
+# Add a batch dimension using '.unsqueeze(0)'
+encoded = clip_model.encode_image(preprocessed.unsqueeze(0))
+caption = model(encoded)
+```
+
+### Custom Trained Model
+
+The training script will produce a `model.zip` archive, containing the `Tokenizer` and trained model parameters.  Use the `.load(...)` method to initialize an inference model from the model archive.
+```python
+import clip
+from PIL import Image
+import torch
+
+from clip_text_decoder.model import ClipDecoderInferenceModel
+
+model = ClipDecoderInferenceModel.load("path/to/model.zip").to(device)
+# Load CLIP model and preprocessor, (optional) push to GPU, and predict caption...
+```
 
 ## Training
 
@@ -71,47 +127,6 @@ Training CLI arguments, along with their default values:
 One epoch takes about 5 minutes using a T4 GPU, which is freely available in Google Colab.  After about 10 training epochs, you'll reach a BLEU-4 score of roughly 0.30.  So in under an hour, you can train an image captioning model that is competitive with (though not quite matching) state-of-the-art accuracy.
 
 **TODO:** Enable full end-to-end training, including the ClIP image backbone.  This will **dramatically** increase training time, since the image encodings can no longer be pre-computed.  But in theory, it should lead to higher overall accuracy of the model.
-
-## Inference
-
-The training script will produce a `model.zip` archive, containing the `Tokenizer` and trained model parameters.  To perform inference with it:
-```python
-import clip
-from PIL import Image
-import torch
-
-from clip_text_decoder.model import ClipDecoderInferenceModel
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = ClipDecoderInferenceModel.load("path/to/model.zip").to(device)
-clip_model, clip_preprocessor = clip.load("ViT-B/32", device=device, jit=False)
-
-# Create a blank dummy image
-dummy_image = Image.new("RGB", (224, 224))
-preprocessed = clip_preprocessor(dummy_image).to(device)
-# Add a batch dimension using '.unsqueeze(0)'
-encoded = clip_model.encode_image(preprocessed.unsqueeze(0))
-text = model(encoded)
-
-print(text)
-# Probably some nonsense, because we used a dummy image.
-```
-
-
-## Pretrained Models
-
-A pretrained CLIP decoder is hosted in my Google Drive, and can easily be downloaded by:
-
-```python
-from clip_text_decoder.model import ClipDecoderInferenceModel
-
-model = ClipDecoderInferenceModel.download_pretrained()
-```
-
-To cache the pretrained model locally, so that it's not re-downloaded each time:
-```python
-model = ClipDecoderInferenceModel.download_pretrained("/path/to/model.zip")
-```
 
 
 ## Shortcomings

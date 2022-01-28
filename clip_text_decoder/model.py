@@ -1,20 +1,25 @@
 from __future__ import annotations
+
 import os
 import tempfile
-from typing import Optional, Tuple
+from functools import cached_property
+from typing import Optional, Tuple, Union
 
+import clip
 import gdown
-from pytorch_lightning import LightningModule
 import torch
 import torch.nn.functional as F
+from PIL import Image
+from pytorch_lightning import LightningModule
 from torch import Tensor, optim
 from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
 
 
 PRETRAINED_INFERENCE_MODEL_PATH = (
-    "https://drive.google.com/uc?id=1bYAog3ZFLiBZEPRLqBcy8J-gXp7NTPAY"
-    # https://drive.google.com/file/d/1bYAog3ZFLiBZEPRLqBcy8J-gXp7NTPAY/view?usp=sharing
+    "https://drive.google.com/uc?id=1oXPhrXMqRO_Q1UFe4NAs_RvDXR1AGoL2"
+    # https://drive.google.com/file/d/1oXPhrXMqRO_Q1UFe4NAs_RvDXR1AGoL2/view?usp=sharing
 )
+# https://drive.google.com/file/d/1bYAog3ZFLiBZEPRLqBcy8J-gXp7NTPAY/view?usp=sharing
 
 
 class ClipDecoder(LightningModule):
@@ -80,9 +85,7 @@ class ClipDecoderInferenceModel:
     _tokenizer_path = "tokenizer.pkl"
 
     def __init__(
-        self,
-        model: ClipDecoder,
-        tokenizer: GPT2Tokenizer,
+        self, model: ClipDecoder, tokenizer: GPT2Tokenizer,
     ):
         self.model = model.eval()
         self.tokenizer = tokenizer
@@ -96,14 +99,20 @@ class ClipDecoderInferenceModel:
         return self
 
     def save(self, path: str):
-        torch.save(self, path)
+        # Save a copy of the current model weights, and cast to FP16 for storage
+        model_state_dict = self.model.state_dict()
+        # Avoid saving any cached properties of this class or its subclasses :)
+        obj = self.__class__(model=self.model.half(), tokenizer=self.tokenizer)
+        torch.save(obj, path)
+        # Restore the original model weights
+        self.model.load_state_dict(model_state_dict)
 
     @classmethod
     def load(cls, path: str) -> ClipDecoderInferenceModel:
         temp = torch.load(path)
         # Just in case we change any of the class methods here, unpack the model
         # and tokenizer, and pass them into a new instance of this class.
-        return cls(model=temp.model, tokenizer=temp.tokenizer)
+        return cls(model=temp.model.float(), tokenizer=temp.tokenizer)
 
     @classmethod
     def download_pretrained(cls, dest: str = None) -> ClipDecoderInferenceModel:
@@ -121,8 +130,7 @@ class ClipDecoderInferenceModel:
         embedding_size = x.size(-1)
         encoder_hidden_states = x.reshape(1, -1, embedding_size).to(self.device)
         input_ids = torch.tensor(
-            self.tokenizer.bos_token_id,
-            device=self.device,
+            self.tokenizer.bos_token_id, device=self.device,
         ).reshape(1, -1)
 
         for _ in range(max_len - 1):
@@ -139,3 +147,31 @@ class ClipDecoderInferenceModel:
             input_ids = torch.cat([input_ids, pred.reshape(1, 1)], dim=1)
 
         return self.tokenizer.decode(input_ids.flatten(), skip_special_tokens=True)
+
+
+class ImageCaptionInferenceModel(ClipDecoderInferenceModel):
+    def __init__(self, model: ClipDecoder, tokenizer: GPT2Tokenizer):
+        super().__init__(model, tokenizer)
+
+    @cached_property
+    def clip(self):
+        return clip.load("ViT-B/32", device=self.device, jit=False)
+
+    @torch.cuda.amp.autocast()
+    @torch.no_grad()
+    def __call__(
+        self,
+        image: Union[str, Image.Image],
+        max_len: int = 64,
+        temperature: float = 1e-8,
+        topk: int = 1,
+    ) -> str:
+        if isinstance(image, str):
+            image = Image.open(image)
+
+        clip_model, clip_preprocessor = self.clip
+        preprocessed = clip_preprocessor(image).to(self.device)
+        encoded = clip_model.encode_image(preprocessed.unsqueeze(0))
+        return super().__call__(
+            encoded, max_len=max_len, temperature=temperature, topk=topk
+        )
