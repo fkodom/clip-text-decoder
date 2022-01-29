@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from functools import cached_property
-from typing import Optional, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import clip
 import gdown
@@ -152,10 +151,33 @@ class ClipDecoderInferenceModel:
 class ImageCaptionInferenceModel(ClipDecoderInferenceModel):
     def __init__(self, model: ClipDecoder, tokenizer: GPT2Tokenizer):
         super().__init__(model, tokenizer)
+        self._clip_model: Optional[torch.nn.Module] = None
+        self._clip_preprocessor: Optional[Callable] = None
 
-    @cached_property
-    def clip(self):
-        return clip.load("ViT-B/32", device=self.device, jit=False)
+    def _load_clip(self):
+        self._clip_model, self._clip_preprocessor = clip.load(
+            "ViT-B/32", device=self.device, jit=False
+        )
+
+    @property
+    def clip_model(self) -> torch.nn.Module:
+        if self._clip_model is None:
+            self._load_clip()
+        assert self._clip_model is not None, "Could not load CLIP model."
+        return self._clip_model
+
+    @property
+    def clip_preprocessor(self) -> Callable:
+        if self._clip_preprocessor is None:
+            self._load_clip()
+        assert self._clip_preprocessor is not None, "Could not load CLIP model."
+        return self._clip_preprocessor
+
+    @property
+    def clip_model(self) -> torch.nn.Module:
+        if self._clip_model is None:
+            self._load_clip()
+        return self._clip_model
 
     @torch.cuda.amp.autocast()
     @torch.no_grad()
@@ -169,9 +191,8 @@ class ImageCaptionInferenceModel(ClipDecoderInferenceModel):
         if isinstance(image, str):
             image = Image.open(image)
 
-        clip_model, clip_preprocessor = self.clip
-        preprocessed = clip_preprocessor(image).to(self.device)
-        encoded = clip_model.encode_image(preprocessed.unsqueeze(0))
+        preprocessed = self.clip_preprocessor(image).to(self.device)
+        encoded = self.clip_model.encode_image(preprocessed.unsqueeze(0))
         return super().__call__(
             encoded, max_len=max_len, temperature=temperature, topk=topk
         )
