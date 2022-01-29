@@ -82,10 +82,12 @@ def test_inference_model_save_load(gpt2_type: str):
         _ = ClipDecoderInferenceModel.load(path)
 
 
+@pytest.mark.slow
 def test_inference_model_download_pretrained():
     _ = ClipDecoderInferenceModel.download_pretrained()
 
 
+@pytest.mark.slow
 def test_image_caption_model_predict():
     image = Image.new("RGB", (224, 224))
     model = ImageCaptionInferenceModel.download_pretrained()
