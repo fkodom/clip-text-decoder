@@ -1,13 +1,14 @@
 from __future__ import annotations
-from functools import lru_cache
+
 import multiprocessing as mp
 import os
 import random
+from functools import lru_cache
 from typing import List, Tuple
 
 import torch
 from datasets import load_metric
-from pytorch_lightning import callbacks, seed_everything, Trainer
+from pytorch_lightning import Trainer, callbacks, seed_everything
 from torch import Tensor
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
@@ -45,8 +46,7 @@ def collate_fn(
     )
 
     encoder_hidden_states = torch.stack(
-        [torch.from_numpy(x) for x, _ in batch],
-        dim=0,
+        [torch.from_numpy(x) for x, _ in batch], dim=0,
     ).reshape(len(batch), 1, -1)
 
     return (
@@ -141,8 +141,7 @@ if __name__ == "__main__":
 
     # Build a self-contained inference model and generate a bunch of sample predictions.
     decoder = ClipDecoderInferenceModel(
-        model=model,
-        tokenizer=get_tokenizer(gpt2_type=args.gpt2_type),
+        model=model, tokenizer=get_tokenizer(gpt2_type=args.gpt2_type),
     )
     # Save the inference model to our experiment logs directory.
     assert trainer.log_dir is not None

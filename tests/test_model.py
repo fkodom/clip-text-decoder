@@ -1,6 +1,6 @@
-from functools import lru_cache
 import os
 import tempfile
+from functools import lru_cache
 
 import pytest
 import torch
@@ -12,7 +12,6 @@ from clip_text_decoder.model import (
     ClipDecoderInferenceModel,
     ImageCaptionInferenceModel,
 )
-
 
 GPT2_TYPES = ["distilgpt2"]
 DUMMY_TEXTS = [

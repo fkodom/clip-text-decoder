@@ -1,18 +1,19 @@
 from __future__ import annotations
-from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
+
 import io
 import json
 import os
 import pickle
-import requests
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from typing import Dict, List, Optional, Sequence, Tuple
 from zipfile import ZipFile
 
 import clip
 import gdown
 import numpy as np
+import requests
 import torch
 import wget
 from PIL import Image

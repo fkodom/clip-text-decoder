@@ -13,12 +13,10 @@ from pytorch_lightning import LightningModule
 from torch import Tensor, optim
 from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
 
-
 PRETRAINED_INFERENCE_MODEL_PATH = (
     "https://drive.google.com/uc?id=1oXPhrXMqRO_Q1UFe4NAs_RvDXR1AGoL2"
     # https://drive.google.com/file/d/1oXPhrXMqRO_Q1UFe4NAs_RvDXR1AGoL2/view?usp=sharing
 )
-# https://drive.google.com/file/d/1bYAog3ZFLiBZEPRLqBcy8J-gXp7NTPAY/view?usp=sharing
 
 
 class ClipDecoder(LightningModule):
