@@ -174,12 +174,6 @@ class ImageCaptionInferenceModel(ClipDecoderInferenceModel):
         assert self._clip_preprocessor is not None, "Could not load CLIP model."
         return self._clip_preprocessor
 
-    @property
-    def clip_model(self) -> torch.nn.Module:
-        if self._clip_model is None:
-            self._load_clip()
-        return self._clip_model
-
     @torch.cuda.amp.autocast()
     @torch.no_grad()
     def __call__(
