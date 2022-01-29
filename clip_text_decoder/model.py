@@ -82,7 +82,9 @@ class ClipDecoderInferenceModel:
     _tokenizer_path = "tokenizer.pkl"
 
     def __init__(
-        self, model: ClipDecoder, tokenizer: GPT2Tokenizer,
+        self,
+        model: ClipDecoder,
+        tokenizer: GPT2Tokenizer,
     ):
         self.model = model.eval()
         self.tokenizer = tokenizer
@@ -127,7 +129,8 @@ class ClipDecoderInferenceModel:
         embedding_size = x.size(-1)
         encoder_hidden_states = x.reshape(1, -1, embedding_size).to(self.device)
         input_ids = torch.tensor(
-            self.tokenizer.bos_token_id, device=self.device,
+            self.tokenizer.bos_token_id,
+            device=self.device,
         ).reshape(1, -1)
 
         for _ in range(max_len - 1):

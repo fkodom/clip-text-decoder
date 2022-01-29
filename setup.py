@@ -33,7 +33,15 @@ setup(
         "torch>=1.8",
         "transformers",
     ],
-    extras_require={"test": ["black", "flake8", "isort", "pytest", "pytest-cov",]},
+    extras_require={
+        "test": [
+            "black",
+            "flake8",
+            "isort",
+            "pytest",
+            "pytest-cov",
+        ]
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",

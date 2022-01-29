@@ -38,7 +38,8 @@ def test_model_forward(gpt2_type: str):
     encoder_hidden_states = torch.randn(BATCH_SIZE, 1, EMBEDDING_DIM)
 
     out = model.forward(
-        input_ids=input_ids, encoder_hidden_states=encoder_hidden_states,
+        input_ids=input_ids,
+        encoder_hidden_states=encoder_hidden_states,
     )
     batch_size, seq_len, out_size = out.logits.shape
     assert batch_size == BATCH_SIZE
