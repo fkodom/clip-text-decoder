@@ -91,4 +91,4 @@ def test_image_caption_model_predict():
     model = ImageCaptionInferenceModel.download_pretrained()
     pred = model(image)
     assert isinstance(pred, str)
-    assert len(str) > 0
+    assert len(pred) > 0
