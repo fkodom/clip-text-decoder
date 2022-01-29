@@ -1,6 +1,6 @@
-from functools import lru_cache
 import os
 import tempfile
+from functools import lru_cache
 
 import pytest
 import torch
@@ -12,7 +12,6 @@ from clip_text_decoder.model import (
     ClipDecoderInferenceModel,
     ImageCaptionInferenceModel,
 )
-
 
 GPT2_TYPES = ["distilgpt2"]
 DUMMY_TEXTS = [
@@ -39,7 +38,8 @@ def test_model_forward(gpt2_type: str):
     encoder_hidden_states = torch.randn(BATCH_SIZE, 1, EMBEDDING_DIM)
 
     out = model.forward(
-        input_ids=input_ids, encoder_hidden_states=encoder_hidden_states,
+        input_ids=input_ids,
+        encoder_hidden_states=encoder_hidden_states,
     )
     batch_size, seq_len, out_size = out.logits.shape
     assert batch_size == BATCH_SIZE
@@ -82,13 +82,15 @@ def test_inference_model_save_load(gpt2_type: str):
         _ = ClipDecoderInferenceModel.load(path)
 
 
+@pytest.mark.slow
 def test_inference_model_download_pretrained():
     _ = ClipDecoderInferenceModel.download_pretrained()
 
 
+@pytest.mark.slow
 def test_image_caption_model_predict():
     image = Image.new("RGB", (224, 224))
     model = ImageCaptionInferenceModel.download_pretrained()
     pred = model(image)
     assert isinstance(pred, str)
-    assert len(str) > 0
+    assert len(pred) > 0

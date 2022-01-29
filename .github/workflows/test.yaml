@@ -26,7 +26,7 @@ jobs:
 
       - name: Install Package
         run: |
-          pip install torch==${{ matrix.torch }}
+          pip install torch~=${{ matrix.torch }}.0
           pip install .[test]
           python -m spacy download en_core_web_sm
           pip install "clip @ git+https://github.com/openai/CLIP.git"

@@ -1,13 +1,14 @@
 from __future__ import annotations
-from functools import lru_cache
+
 import multiprocessing as mp
 import os
 import random
+from functools import lru_cache
 from typing import List, Tuple
 
 import torch
 from datasets import load_metric
-from pytorch_lightning import callbacks, seed_everything, Trainer
+from pytorch_lightning import Trainer, callbacks, seed_everything
 from torch import Tensor
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
