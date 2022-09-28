@@ -214,12 +214,3 @@ class ImageCaptionInferenceModel(ClipDecoderInferenceModel):
         preprocessed: Tensor = self.clip_preprocessor(image).to(self.device)
         encoded = self.clip_model.encode_image(preprocessed.unsqueeze(0))
         return super().__call__(encoded, max_len=max_len, beam_size=beam_size)
-
-
-if __name__ == "__main__":
-    from PIL import Image
-
-    model = ImageCaptionInferenceModel.download_pretrained().to("cuda")
-    image = Image.open("puppy.jpg")
-    caption = model(image)
-    print(caption)
