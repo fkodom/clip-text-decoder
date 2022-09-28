@@ -26,6 +26,7 @@ Install for easier access to the following objects/classes:
 * `clip_text_decoder.dataset.ClipCocoCaptionsDataset`
 * `clip_text_decoder.model.ClipDecoder`
 * `clip_text_decoder.model.ClipDecoderInferenceModel`
+* `clip_text_decoder.model.ImageCaptionInferenceModel`
 
 The `train.py` script will not be available in the installed package, since it's located in the root directory.  To train new models, either clone this repository or recreate `train.py` locally.
 
@@ -40,14 +41,6 @@ git clone https://github.com/fkodom/clip-text-decoder.git
 cd clip-text-decoder
 pip install .
 ```
-
-**NOTE:** You'll also need to install `openai/CLIP` to encode images with CLIP.  This is also required by `ClipCocoCaptionsDataset` to build the captions dataset the first time (cached for subsequent calls).
-
-```bash
-pip install "clip @ git+https://github.com/openai/CLIP.git"
-```
-
-For technical reasons, the CLIP dependency can't be included in the PyPI package, since it's not an officially published package.
 
 ## Inference
 
