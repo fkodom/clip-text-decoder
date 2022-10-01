@@ -2,6 +2,8 @@
 
 Train an image captioner with 0.30 BLEU score in under one hour! ([0.332 BLEU with beam search](#ablation-beam-size) 🙂)
 
+Generates text captions for images from their CLIP embeddings. Includes PyTorch model code, example training script, and convenient inference classes.
+
 
 ## Example Predictions
 
