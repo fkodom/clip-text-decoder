@@ -40,6 +40,7 @@ setup(
             "black",
             "flake8",
             "isort",
+            "pre-commit",
             "pytest",
             "pytest-cov",
         ]
