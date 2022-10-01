@@ -67,28 +67,33 @@ def get_dataloader(batch_size: int = 64, split: str = "train"):
     )
 
 
-def show_sample_predictions(model: ClipDecoderInferenceModel, n: int = 25):
+def show_sample_predictions(
+    model: ClipDecoderInferenceModel, n: int = 25, beam_size: int = 1
+):
     ds = load_dataset(split="val")
     random.seed(0)
     for _ in range(n):
         encoding, text = ds[random.randint(0, len(ds)) - 1]
-        pred = model(torch.from_numpy(encoding))
+        pred = model(torch.from_numpy(encoding), beam_size=beam_size)
         print(f"Pred: {pred}")
         print(f"True: {text}")
 
 
 def compute_bleu_score(
-    model: ClipDecoderInferenceModel, verbose: bool = True, num_samples: int = 4096
+    model: ClipDecoderInferenceModel,
+    beam_size: int = 1,
+    num_samples: int = 2048,
+    verbose: bool = True,
 ) -> float:
     torch.manual_seed(0)
 
     ds = load_dataset(split="val")
     idx = torch.randperm(len(ds))[:num_samples].tolist()
-    ds = Subset(ds, indices=idx)
+    subset = Subset(ds, indices=idx)
     bleu = load_metric("bleu")
 
-    for x, y in tqdm(ds, desc="BLEU", disable=(not verbose)):
-        output = model(torch.as_tensor(x))
+    for x, y in tqdm(subset, desc="BLEU", disable=(not verbose)):
+        output = model(torch.as_tensor(x), beam_size=beam_size)
         prediction = model.tokenizer.tokenize(output)
         reference = [model.tokenizer.tokenize(ref) for ref in y]
         bleu.add_batch(predictions=[prediction], references=[reference])
@@ -101,6 +106,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpt2-type", type=str, default="distilgpt2")
+    parser.add_argument("--beam-size", type=int, default=1)
     parser.add_argument("--max-epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--accumulate-grad-batches", type=int, default=4)
@@ -126,7 +132,7 @@ if __name__ == "__main__":
         logger=True,
         callbacks=[
             callbacks.ModelCheckpoint(monitor="validation_loss"),
-            callbacks.EarlyStopping(monitor="validation_loss"),
+            callbacks.EarlyStopping(monitor="validation_loss", patience=5),
         ],
     )
 
@@ -153,5 +159,5 @@ if __name__ == "__main__":
     # Get sample predictions, and compute the BLEU score for the model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     decoder.to(device=device)
-    show_sample_predictions(decoder, n=25)
-    print(f"BLEU score: {compute_bleu_score(decoder):.4f}")
+    show_sample_predictions(decoder, n=25, beam_size=args.beam_size)
+    print(f"BLEU score: {compute_bleu_score(decoder, beam_size=args.beam_size):.4f}")

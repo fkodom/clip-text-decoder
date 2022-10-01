@@ -1,33 +1,35 @@
 # clip-text-decoder
 
-Train an image captioner with 0.30 BLEU score in under an hour! Includes PyTorch model code, example training script, and pre-trained model weights.
+Train an image captioner with 0.30 BLEU score in under one hour! ([0.332 BLEU with beam search](#ablation-beam-size) 🙂)
+
+Generates text captions for images from their CLIP embeddings. Includes PyTorch model code, example training script, and convenient inference classes.
 
 
 ## Example Predictions
 
-Example captions were computed with the pretrained model mentioned below.
+Computed using the pretrained model mentioned below.
 
-"A man riding a wave on top of a surfboard."
+<p align="center">
+    <img src="http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg" height=224/><br>
+    "A man riding a wave on top of a surfboard."
+</p>
 
-![A surfer riding a wave](http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg)
+<br>
 
-"A baseball player is swinging a bat at a ball."
+<p align="center">
+    <img src="http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg" height=224/><br>
+    "A baseball player is swinging a bat at a ball."
+</p>
 
-![Baseball player](http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg)
+<br>
 
-"A dog jumping in the air to catch a frisbee."
-
-![Dog with frisbee](http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg)
+<p align="center">
+    <img src="http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg" height=224/><br>
+    "A dog jumping in the air to catch a frisbee."
+</p>
 
 
 ## Installation
-
-Install for easier access to the following objects/classes:
-* `clip_text_decoder.dataset.ClipCocoCaptionsDataset`
-* `clip_text_decoder.model.ClipDecoder`
-* `clip_text_decoder.model.ClipDecoderInferenceModel`
-
-The `train.py` script will not be available in the installed package, since it's located in the root directory.  To train new models, either clone this repository or recreate `train.py` locally.
 
 Using `pip`:
 ```bash
@@ -41,17 +43,9 @@ cd clip-text-decoder
 pip install .
 ```
 
-**NOTE:** You'll also need to install `openai/CLIP` to encode images with CLIP.  This is also required by `ClipCocoCaptionsDataset` to build the captions dataset the first time (cached for subsequent calls).
-
-```bash
-pip install "clip @ git+https://github.com/openai/CLIP.git"
-```
-
-For technical reasons, the CLIP dependency can't be included in the PyPI package, since it's not an officially published package.
-
 ## Inference
 
-### Pretrained Caption Model
+### Pretrained Model
 ```python
 from PIL import Image
 import torch
@@ -63,54 +57,49 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
 
 image = Image.open("path/to/image.jpeg")
-caption = model(image)
+# The beam_size argument is optional. Larger beam_size is slower, but has
+# slightly higher accuracy. Recommend using beam_size <= 3.
+caption = model(image, beam_size=1)
 ```
 
 To cache the pretrained model locally, so that it's not re-downloaded each time:
 ```python
-model = ImageCaptionInferenceModel.download_pretrained("/path/to/model.zip")
-```
-
-### Pretrained Decoder Model
-```python
-import clip
-from PIL import Image
-import torch
-
-from clip_text_decoder.model import ClipDecoderInferenceModel
-
-model = ClipDecoderInferenceModel.download_pretrained()
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model.to(device)
-
-clip_model, clip_preprocessor = clip.load("ViT-B/32", device=device, jit=False)
-
-image = Image.open("path/to/image.jpeg")
-preprocessed = clip_preprocessor(dummy_image).to(device)
-# Add a batch dimension using '.unsqueeze(0)'
-encoded = clip_model.encode_image(preprocessed.unsqueeze(0))
-caption = model(encoded)
+model = ImageCaptionInferenceModel.download_pretrained("path/to/model.pt")
 ```
 
 ### Custom Trained Model
 
-The training script will produce a `model.zip` archive, containing the `Tokenizer` and trained model parameters.  Use the `.load(...)` method to initialize an inference model from the model archive.
+Training produces a `model.pt` archive, containing a `Tokenizer` and model parameters.  To reload the trained inference model:
 ```python
-import clip
-from PIL import Image
-import torch
+from clip_text_decoder.model import ImageCaptionInferenceModel
 
-from clip_text_decoder.model import ClipDecoderInferenceModel
-
-model = ClipDecoderInferenceModel.load("path/to/model.zip").to(device)
-# Load CLIP model and preprocessor, (optional) push to GPU, and predict caption...
+model = ImageCaptionInferenceModel.load("path/to/model.pt").to(device)
+# Load image and get predictions like above...
 ```
+
+## Ablation: Beam Size
+
+Measuring the BLEU-4 score for different `beam_size` arguments.  By default, the inference model uses a beam size of 1:
+
+```python
+from clip_text_decoder.model import ImageCaptionInferenceModel
+
+model = ImageCaptionInferenceModel.load("path/to/model.pt")
+caption = model(image, beam_size=1)
+```
+
+Using larger `beam_size` can lead to better BLEU score, at the cost of slower inference speeds. The metrics below were collected from the same model, which was trained for 10 epochs (roughly 1 hour on a T4 GPU):
+
+Beam size   | BLEU-4
+------------|-------
+1 (default) | 0.308
+2           | 0.328
+3           | 0.332
+4           | 0.332
 
 ## Training
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/13MJsNlff1Ew5_rJHWtpkYamVg30oyRTO?usp=sharing)
-
-Launch your own training session using the provided script (`train.py`):
+Launch your own training session using `train.py`:
 ```bash
 python train.py --max-epochs 10
 ```
@@ -118,18 +107,25 @@ python train.py --max-epochs 10
 Training CLI arguments, along with their default values:
 ```bash
 --max-epochs 10  # (int)
+--beam-size 1  # (int)
 --batch-size 32  # (int)
 --accumulate-grad-batches 4  # (int)
 --precision 16  # (16 or 32)
 --seed 0  # (int)
 ```
 
-One epoch takes about 5 minutes using a T4 GPU, which is freely available in Google Colab.  After about 10 training epochs, you'll reach a BLEU-4 score of roughly 0.30.  So in under an hour, you can train an image captioning model that is competitive with (though not quite matching) state-of-the-art accuracy.
+One epoch takes about 5-6 minutes using a T4 GPU, which is usually free in Google Colab (depending on availability).  After about 10 training epochs, you'll reach a BLEU-4 score just over 0.30 (without beam search).  So, in under an hour, you can train a pretty good image captioning model. 😎
 
-**TODO:** Enable full end-to-end training, including the ClIP image backbone.  This will **dramatically** increase training time, since the image encodings can no longer be pre-computed.  But in theory, it should lead to higher overall accuracy of the model.
+### Notes
+
+BLEU doesn't increase much beyond 1 hour of training. Training and validation loss will continue to decrease, but the resulting image captions are effectively equivalent. 
+
+I think this is a limitation of the CLIP embeddings, rather than a limitation of the language model. Larger language models (e.g. GPT-2 Large) don't improve the BLEU score by much. Some models like [BLIP, where the vision backbone is trained directly on COCO](https://github.com/salesforce/BLIP), can reach higher BLEU scores. (Probably a generalization-vs-specialization tradeoff there 🤷)
+
+I plan to train using larger CLIP variants (e.g. `"ViT-L/14@336px"`), to see if that improves the score.  This shouldn't slow down inference by much, since the language model (GPT-2) typically takes much longer than encoding the image.
 
 
 ## Shortcomings
 
-* Only works well with COCO-style images.  If you go outside the distribution of COCO objects, you'll get nonsense text captions.
-* Relatively short training time.  Even within the COCO domain, you'll occasionally see incorrect captions.  Quite a few captions will have bad grammar, repetitive descriptors, etc.
+* Only works well with COCO-style images.
+* Plan to train on Conceptual Captions for more generic image captioning.

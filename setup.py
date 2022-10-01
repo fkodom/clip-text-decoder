@@ -25,6 +25,7 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     install_requires=[
+        "clip @ git+https://github.com/openai/CLIP.git",
         "datasets",
         "gdown",
         "numpy",
@@ -32,12 +33,14 @@ setup(
         "spacy",
         "torch>=1.8",
         "transformers",
+        "wget",
     ],
     extras_require={
         "test": [
             "black",
             "flake8",
             "isort",
+            "pre-commit",
             "pytest",
             "pytest-cov",
         ]
