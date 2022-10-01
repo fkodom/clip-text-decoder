@@ -77,7 +77,16 @@ model = ImageCaptionInferenceModel.load("path/to/model.pt").to(device)
 
 ## Ablation: Beam Size
 
-Measuring the BLEU-4 score for different `beam_size` arguments, all using the same model trained for 10 epochs (roughly 1 hour on a T4 GPU):
+Measuring the BLEU-4 score for different `beam_size` arguments.  By default, the inference model uses a beam size of 1:
+
+```python
+from clip_text_decoder.model import ImageCaptionInferenceModel
+
+model = ImageCaptionInferenceModel.load("path/to/model.pt")
+caption = model(image, beam_size=1)
+```
+
+Using larger `beam_size` can lead to better BLEU score, at the cost of slower inference speeds. The metrics below were collected from the same model, which was trained for 10 epochs (roughly 1 hour on a T4 GPU):
 
 Beam size   | BLEU-4
 ------------|-------
