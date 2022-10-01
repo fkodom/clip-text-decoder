@@ -5,19 +5,26 @@ Train an image captioner with 0.30 BLEU score in under one hour! ([0.332 BLEU wi
 
 ## Example Predictions
 
-Example captions were computed with the pretrained model mentioned below.
+Computed using the pretrained model mentioned below.
 
-"A man riding a wave on top of a surfboard."
+<p align="center">
+    <img src="http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg" height=224 width=224/><br>
+    "A man riding a wave on top of a surfboard."
+</p>
 
-![A surfer riding a wave](http://farm6.staticflickr.com/5028/5654757697_bcdd8088da_z.jpg)
+<br>
 
-"A baseball player is swinging a bat at a ball."
+<p align="center">
+    <img src="http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg" height=224 width=224/><br>
+    "A baseball player is swinging a bat at a ball."
+</p>
 
-![Baseball player](http://farm4.staticflickr.com/3202/2697603492_fbb44f6d2d_z.jpg)
+<br>
 
-"A dog jumping in the air to catch a frisbee."
-
-![Dog with frisbee](http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg)
+<p align="center">
+    <img src="http://farm3.staticflickr.com/2544/3715539092_f070a36b22_z.jpg" height=224 width=224/><br>
+    "A dog jumping in the air to catch a frisbee."
+</p>
 
 
 ## Installation
