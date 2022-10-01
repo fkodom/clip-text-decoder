@@ -67,12 +67,14 @@ def get_dataloader(batch_size: int = 64, split: str = "train"):
     )
 
 
-def show_sample_predictions(model: ClipDecoderInferenceModel, n: int = 25):
+def show_sample_predictions(
+    model: ClipDecoderInferenceModel, n: int = 25, beam_size: int = 1
+):
     ds = load_dataset(split="val")
     random.seed(0)
     for _ in range(n):
         encoding, text = ds[random.randint(0, len(ds)) - 1]
-        pred = model(torch.from_numpy(encoding))
+        pred = model(torch.from_numpy(encoding), beam_size=beam_size)
         print(f"Pred: {pred}")
         print(f"True: {text}")
 
@@ -130,7 +132,7 @@ if __name__ == "__main__":
         logger=True,
         callbacks=[
             callbacks.ModelCheckpoint(monitor="validation_loss"),
-            callbacks.EarlyStopping(monitor="validation_loss"),
+            callbacks.EarlyStopping(monitor="validation_loss", patience=5),
         ],
     )
 
@@ -157,5 +159,5 @@ if __name__ == "__main__":
     # Get sample predictions, and compute the BLEU score for the model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     decoder.to(device=device)
-    show_sample_predictions(decoder, n=25)
-    print(f"BLEU score: {compute_bleu_score(decoder):.4f}")
+    show_sample_predictions(decoder, n=25, beam_size=args.beam_size)
+    print(f"BLEU score: {compute_bleu_score(decoder, beam_size=args.beam_size):.4f}")
