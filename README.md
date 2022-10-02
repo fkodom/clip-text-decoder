@@ -33,11 +33,13 @@ Computed using the pretrained model mentioned below.
 
 Using `pip`:
 ```bash
+pip install "clip @ git+https://github.com/openai/CLIP.git"
 pip install clip-text-decoder
 ```
 
 From source:
 ```bash
+pip install "clip @ git+https://github.com/openai/CLIP.git"
 git clone https://github.com/fkodom/clip-text-decoder.git
 cd clip-text-decoder
 pip install .
