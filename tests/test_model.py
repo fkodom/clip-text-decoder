@@ -8,8 +8,8 @@ from PIL import Image
 from transformers import GPT2Tokenizer
 
 from clip_text_decoder.model import (
-    ClipDecoder,
-    ClipDecoderInferenceModel,
+    Decoder,
+    DecoderInferenceModel,
     ImageCaptionInferenceModel,
 )
 
@@ -29,7 +29,7 @@ def get_tokenizer(gpt2_type: str = "distilgpt2") -> GPT2Tokenizer:
 
 @pytest.mark.parametrize("gpt2_type", GPT2_TYPES)
 def test_model_forward(gpt2_type: str):
-    model = ClipDecoder(gpt2_type=gpt2_type).eval()
+    model = Decoder(language_model=gpt2_type).eval()
     tokenizer = get_tokenizer(gpt2_type=gpt2_type)
 
     vocab_size = len(tokenizer)
@@ -49,9 +49,9 @@ def test_model_forward(gpt2_type: str):
 
 @pytest.mark.parametrize("gpt2_type", GPT2_TYPES)
 def test_inference_model_forward(gpt2_type: str):
-    model = ClipDecoder(gpt2_type=gpt2_type).eval()
+    model = Decoder(language_model=gpt2_type).eval()
     tokenizer = get_tokenizer(gpt2_type=gpt2_type)
-    inference_model = ClipDecoderInferenceModel(model=model, tokenizer=tokenizer)
+    inference_model = DecoderInferenceModel(model=model, tokenizer=tokenizer)
 
     EMBEDDING_SIZE = 512
     memory = torch.randn(1, 1, EMBEDDING_SIZE)
@@ -61,9 +61,9 @@ def test_inference_model_forward(gpt2_type: str):
 
 @pytest.mark.parametrize("gpt2_type", GPT2_TYPES)
 def test_inference_model_save(gpt2_type: str):
-    model = ClipDecoder(gpt2_type=gpt2_type).eval()
+    model = Decoder(language_model=gpt2_type).eval()
     tokenizer = get_tokenizer(gpt2_type=gpt2_type)
-    inference_model = ClipDecoderInferenceModel(model=model, tokenizer=tokenizer)
+    inference_model = DecoderInferenceModel(model=model, tokenizer=tokenizer)
 
     with tempfile.TemporaryDirectory() as tempdir:
         path = os.path.join(tempdir, "model.pt")
@@ -72,19 +72,19 @@ def test_inference_model_save(gpt2_type: str):
 
 @pytest.mark.parametrize("gpt2_type", GPT2_TYPES)
 def test_inference_model_save_load(gpt2_type: str):
-    model = ClipDecoder(gpt2_type=gpt2_type).eval()
+    model = Decoder(language_model=gpt2_type).eval()
     tokenizer = get_tokenizer(gpt2_type=gpt2_type)
-    inference_model = ClipDecoderInferenceModel(model=model, tokenizer=tokenizer)
+    inference_model = DecoderInferenceModel(model=model, tokenizer=tokenizer)
 
     with tempfile.TemporaryDirectory() as tempdir:
         path = os.path.join(tempdir, "model.pt")
         inference_model.save(path)
-        _ = ClipDecoderInferenceModel.load(path)
+        _ = DecoderInferenceModel.load(path)
 
 
 @pytest.mark.slow
 def test_inference_model_download_pretrained():
-    _ = ClipDecoderInferenceModel.download_pretrained()
+    _ = DecoderInferenceModel.download_pretrained()
 
 
 @pytest.mark.slow

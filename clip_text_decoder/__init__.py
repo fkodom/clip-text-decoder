@@ -1,0 +1,1 @@
+CLIP_BACKBONE = "ViT-B/32"

@@ -108,6 +108,8 @@ python train.py --max-epochs 10
 
 Training CLI arguments, along with their default values:
 ```bash
+--vision-backbone blip:base  # (str)
+--language-model distilgpt2  # (str)
 --max-epochs 10  # (int)
 --beam-size 1  # (int)
 --batch-size 32  # (int)
