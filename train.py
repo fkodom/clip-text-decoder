@@ -3,7 +3,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import os
 import random
-from functools import lru_cache
+from functools import lru_cache, partial
 from typing import List, Tuple
 
 import torch
@@ -148,15 +148,14 @@ if __name__ == "__main__":
                     monitor="validation_loss", patience=args.patience
                 ),
             ],
-            limit_train_batches=1,
-            limit_val_batches=1,
+        )
+        dataloader_fn = partial(
+            get_dataloader,
+            vision_backbone=args.vision_backbone,
+            batch_size=args.batch_size,
         )
         # Train the model, and then load the best-performing state dictionary.
-        trainer.fit(
-            model,
-            get_dataloader(split="train", batch_size=args.batch_size),
-            get_dataloader(split="val", batch_size=args.batch_size),
-        )
+        trainer.fit(model, dataloader_fn(split="train"), dataloader_fn(split="val"))
         assert trainer.checkpoint_callback is not None
         checkpoint = torch.load(trainer.checkpoint_callback.best_model_path)
         model.load_state_dict(checkpoint["state_dict"])
