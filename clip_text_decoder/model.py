@@ -28,14 +28,22 @@ PRETRAINED_INFERENCE_MODEL_PATH = (
 
 class Decoder(LightningModule):
     def __init__(
-        self, vision_backbone: str = "blip:base", language_model: str = "distilgpt2"
+        self,
+        vision_backbone: str = "blip:base",
+        language_model: str = "distilgpt2",
+        device: Optional[Union[str, torch.device]] = None,
     ):
         super().__init__()
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
         self.save_hyperparameters()
         check_vision_backbone(vision_backbone)
         self.vision_backbone = vision_backbone
         check_language_model(language_model)
-        self.language_model = load_language_model(language_model)
+        self.language_model = load_language_model(language_model, device=device)
+
+        self.to(device)
 
     def forward(
         self,
