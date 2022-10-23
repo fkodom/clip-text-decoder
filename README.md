@@ -1,6 +1,6 @@
 # clip-text-decoder
 
-Train an image captioner with 0.323 BLEU score in under one hour! ([0.350 BLEU with beam search](#ablation-beam-size) 🙂)
+Train an image captioner with 0.323 BLEU score in under one hour! ([0.352 BLEU with beam search](#ablation-beam-size) 🙂)
 
 Generates text captions for images from their embeddings. **Now includes [BLIP](https://github.com/salesforce/BLIP) as an available vision backbone!**
 
