@@ -12,8 +12,8 @@ jobs:
 
     strategy:
       matrix:
-        python: ["3.7", "3.8", "3.9"]
-        torch: ["1.8", "1.9", "1.10"]
+        python: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        torch: ["1.10", "1.11", "1.12"]
 
     steps:
       - name: Checkout
@@ -26,11 +26,13 @@ jobs:
 
       - name: Install Package
         run: |
-          pip install torch~=${{ matrix.torch }}.0
-          pip install .[test]
+          pip install \
+          pip install \
+            .[test] \
+            torch~=${{ matrix.torch }}.0 \
+            "clip @ git+https://github.com/openai/CLIP.git" \
+            "lavis @ git+https://github.com/salesforce/LAVIS.git"
           python -m spacy download en_core_web_sm
-          pip install "clip @ git+https://github.com/openai/CLIP.git"
-          pip install "lavis @ git+https://github.com/salesforce/LAVIS.git"
 
       - name: Test
         run: |
