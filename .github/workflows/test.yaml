@@ -26,12 +26,11 @@ jobs:
 
       - name: Install Package
         run: |
-          pip install \
+          pip install "lavis @ git+https://github.com/salesforce/LAVIS.git"
           pip install \
             .[test] \
             torch~=${{ matrix.torch }}.0 \
-            "clip @ git+https://github.com/openai/CLIP.git" \
-            "lavis @ git+https://github.com/salesforce/LAVIS.git"
+            "clip @ git+https://github.com/openai/CLIP.git"
           python -m spacy download en_core_web_sm
 
       - name: Test
