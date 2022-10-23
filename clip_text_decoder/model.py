@@ -4,27 +4,46 @@ import os
 import tempfile
 from typing import Callable, List, Optional, Tuple, Union
 
-import clip
 import gdown
 import torch
 import torch.nn.functional as F
-from clip.model import CLIP
 from PIL import Image
 from pytorch_lightning import LightningModule
-from torch import Tensor, optim
-from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
+from torch import Tensor, nn, optim
+from transformers import GPT2Tokenizer
+
+from clip_text_decoder.common import (
+    check_language_model,
+    check_vision_backbone,
+    encode_image_tensor,
+    load_language_model,
+    load_vision_backbone,
+)
 
 PRETRAINED_INFERENCE_MODEL_PATH = (
-    "https://drive.google.com/uc?id=1oXPhrXMqRO_Q1UFe4NAs_RvDXR1AGoL2"
-    # https://drive.google.com/file/d/1oXPhrXMqRO_Q1UFe4NAs_RvDXR1AGoL2/view?usp=sharing
+    "https://drive.google.com/uc?id=1bEAyV2279C4V4iYMaJahREiM58vjy6G1"
+    # https://drive.google.com/file/d/1bEAyV2279C4V4iYMaJahREiM58vjy6G1/view?usp=sharing
 )
 
 
-class ClipDecoder(LightningModule):
-    def __init__(self, gpt2_type: str = "distilgpt2"):
+class Decoder(LightningModule):
+    def __init__(
+        self,
+        vision_backbone: str = "blip:base",
+        language_model: str = "distilgpt2",
+        device: Optional[Union[str, torch.device]] = None,
+    ):
         super().__init__()
-        self.config = GPT2Config.from_pretrained(gpt2_type, add_cross_attention=True)
-        self.gpt = GPT2LMHeadModel.from_pretrained(gpt2_type, config=self.config)
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        self.save_hyperparameters()
+        check_vision_backbone(vision_backbone)
+        self.vision_backbone = vision_backbone
+        check_language_model(language_model)
+        self.language_model = load_language_model(language_model, device=device)
+
+        self.to(device)
 
     def forward(
         self,
@@ -42,7 +61,7 @@ class ClipDecoder(LightningModule):
         )
         hidden[:, :, :num_features] = encoder_hidden_states
 
-        return self.gpt(
+        return self.language_model(
             input_ids=input_ids,
             encoder_hidden_states=hidden,
             attention_mask=attention_mask,
@@ -50,7 +69,7 @@ class ClipDecoder(LightningModule):
         )
 
     def configure_optimizers(self):
-        return optim.AdamW(self.parameters(), lr=1e-4, betas=(0.9, 0.98))
+        return optim.AdamW(self.parameters(), lr=1e-4)
 
     def training_step(self, batch: Tuple[Tensor, Tensor, Tensor], *_) -> Tensor:
         encoder_hidden_states, input_ids, attention_mask = batch
@@ -61,7 +80,13 @@ class ClipDecoder(LightningModule):
             labels=input_ids,
         )
 
-        self.log("training_loss", result.loss, on_step=False, on_epoch=True)
+        self.log(
+            "training_loss",
+            result.loss,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
         return result.loss
 
     @torch.no_grad()
@@ -74,17 +99,23 @@ class ClipDecoder(LightningModule):
             labels=input_ids,
         )
 
-        self.log("validation_loss", result.loss, on_step=False, on_epoch=True)
+        self.log(
+            "validation_loss",
+            result.loss,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
         return result.loss
 
 
-class ClipDecoderInferenceModel:
+class DecoderInferenceModel:
     _model_path = "model.pt"
     _tokenizer_path = "tokenizer.pkl"
 
     def __init__(
         self,
-        model: ClipDecoder,
+        model: Decoder,
         tokenizer: GPT2Tokenizer,
     ):
         self.model = model.eval()
@@ -94,7 +125,7 @@ class ClipDecoderInferenceModel:
     def device(self) -> torch.device:
         return next(self.model.parameters()).device
 
-    def to(self, device: torch.device) -> ClipDecoderInferenceModel:
+    def to(self, device: torch.device) -> DecoderInferenceModel:
         self.model.to(device)
         return self
 
@@ -108,14 +139,14 @@ class ClipDecoderInferenceModel:
         self.model.load_state_dict(model_state_dict)
 
     @classmethod
-    def load(cls, path: str) -> ClipDecoderInferenceModel:
+    def load(cls, path: str) -> DecoderInferenceModel:
         temp = torch.load(path)
         # Just in case we change any of the class methods here, unpack the model
         # and tokenizer, and pass them into a new instance of this class.
         return cls(model=temp.model.float(), tokenizer=temp.tokenizer)
 
     @classmethod
-    def download_pretrained(cls, dest: str = None) -> ClipDecoderInferenceModel:
+    def download_pretrained(cls, dest: str = None) -> DecoderInferenceModel:
         with tempfile.TemporaryDirectory() as tempdir:
             if dest is None:
                 dest = os.path.join(tempdir, "model.zip")
@@ -192,35 +223,35 @@ class ClipDecoderInferenceModel:
             beam_logprobs = [logprobs[idx] for idx in indices]
 
         # Find the predicted beam with highest overall log-probability.
-        best_beam_idx: int = torch.tensor(beam_logprobs).argmax().item()
+        best_beam_idx: int = torch.tensor(beam_logprobs).argmax().item()  # type: ignore
         # Decode the predicted token IDs into a text string.
         return self.tokenizer.decode(input_ids[best_beam_idx], skip_special_tokens=True)
 
 
-class ImageCaptionInferenceModel(ClipDecoderInferenceModel):
-    def __init__(self, model: ClipDecoder, tokenizer: GPT2Tokenizer):
+class ImageCaptionInferenceModel(DecoderInferenceModel):
+    def __init__(self, model: Decoder, tokenizer: GPT2Tokenizer):
         super().__init__(model, tokenizer)
-        self._clip_model: Optional[CLIP] = None
-        self._clip_preprocessor: Optional[Callable] = None
+        self._vision_backbone: Optional[nn.Module] = None
+        self._preprocessor: Optional[Callable] = None
 
-    def _load_clip(self):
-        self._clip_model, self._clip_preprocessor = clip.load(
-            "ViT-B/32", device=self.device, jit=False
-        )
-
-    @property
-    def clip_model(self) -> CLIP:
-        if self._clip_model is None:
-            self._load_clip()
-        assert self._clip_model is not None, "Could not load CLIP model."
-        return self._clip_model
+    def _load_vision_backbone(self):
+        backbone, preprocessor = load_vision_backbone(self.model.vision_backbone)
+        self._vision_backbone = backbone
+        self._preprocessor = preprocessor
 
     @property
-    def clip_preprocessor(self) -> Callable:
-        if self._clip_preprocessor is None:
-            self._load_clip()
-        assert self._clip_preprocessor is not None, "Could not load CLIP model."
-        return self._clip_preprocessor
+    def vision_backbone(self) -> nn.Module:
+        if self._vision_backbone is None:
+            self._load_vision_backbone()
+        assert self._vision_backbone is not None
+        return self._vision_backbone
+
+    @property
+    def preprocessor(self) -> Callable:
+        if self._preprocessor is None:
+            self._load_vision_backbone()
+        assert self._preprocessor is not None
+        return self._preprocessor
 
     @torch.cuda.amp.autocast()
     @torch.no_grad()
@@ -233,6 +264,6 @@ class ImageCaptionInferenceModel(ClipDecoderInferenceModel):
         if isinstance(image, str):
             image = Image.open(image)
 
-        preprocessed: Tensor = self.clip_preprocessor(image).to(self.device)
-        encoded = self.clip_model.encode_image(preprocessed.unsqueeze(0))
+        preprocessed: Tensor = self.preprocessor(image).to(self.device)
+        encoded = encode_image_tensor(preprocessed.unsqueeze(0), self.vision_backbone)
         return super().__call__(encoded, max_len=max_len, beam_size=beam_size)
