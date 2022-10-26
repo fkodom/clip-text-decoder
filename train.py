@@ -6,9 +6,9 @@ import random
 from functools import lru_cache, partial
 from typing import List, Tuple
 
+import evaluate
 import torch
-from datasets import load_metric
-from pytorch_lightning import Trainer, callbacks, seed_everything
+from pytorch_lightning import Trainer, callbacks, seed_everything, strategies
 from torch import Tensor
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
@@ -87,13 +87,11 @@ def compute_bleu_score(
     ds = load_dataset(vision_backbone=model.model.vision_backbone, split="val")
     idx = torch.randperm(len(ds))[:num_samples].tolist()
     subset = Subset(ds, indices=idx)
-    bleu = load_metric("bleu")
+    bleu = evaluate.load("bleu")
 
-    for x, y in tqdm(subset, desc="BLEU", disable=(not verbose)):
-        output = model(torch.as_tensor(x), beam_size=beam_size)
-        prediction = model.tokenizer.tokenize(output)
-        reference = [model.tokenizer.tokenize(ref) for ref in y]
-        bleu.add_batch(predictions=[prediction], references=[reference])
+    for encoding, captions in tqdm(subset, desc="BLEU", disable=(not verbose)):
+        prediction = model(torch.as_tensor(encoding), beam_size=beam_size)
+        bleu.add_batch(predictions=[prediction], references=[captions])
 
     return bleu.compute()["bleu"]
 
@@ -124,21 +122,13 @@ if __name__ == "__main__":
             vision_backbone=args.vision_backbone,
             language_model=args.language_model,
         )
-        # state_dict = torch.load(
-        #     "lightning_logs/blip-distilgpt2/checkpoints/epoch=17-step=11646.ckpt"
-        # )["state_dict"]
-        # for key in list(state_dict.keys()):
-        #     if key.startswith("gpt"):
-        #         new_key = key.replace("gpt", "language_model")
-        #         state_dict[new_key] = state_dict.pop(key)
-        # model.load_state_dict(state_dict)
 
     if not args.eval_only:
         trainer = Trainer(
             max_epochs=args.max_epochs,
-            accelerator="gpu",
-            devices=-1,
-            strategy="ddp",
+            accelerator="auto",
+            devices="auto",
+            strategy=strategies.DDPStrategy(find_unused_parameters=False),
             precision=args.precision,
             accumulate_grad_batches=args.accumulate_grad_batches,
             logger=True,

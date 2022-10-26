@@ -25,7 +25,7 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     install_requires=[
-        "datasets",
+        "evaluate",
         "gdown",
         "numpy",
         "pytorch-lightning",
