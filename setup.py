@@ -31,6 +31,8 @@ setup(
         "pytorch-lightning",
         "spacy",
         "torch>=1.8",
+        "torchdata>=0.4.1",
+        "torchvision",
         "transformers",
         "wget",
     ],
