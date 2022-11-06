@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import os
 import pickle
-from typing import List, Tuple
+from tempfile import TemporaryDirectory
+from typing import Any, Iterable, List, Tuple
 
 import gdown
 import numpy as np
-import torch
+from PIL import Image
 from torch import Tensor
 from torch.utils.data import Dataset
+from torchdata.datapipes.iter import IterableWrapper
 from tqdm import tqdm
 
 from clip_text_decoder.common import check_vision_backbone
@@ -44,26 +46,20 @@ Building encodings for {dataset} dataset. This may take an hour or more
 """
 
 
-class CocoCaptionsDataset(Dataset):
-    def __init__(
-        self,
-        vision_backbone: str = "blip:base",
-        root: str = "./coco-captions",
-        split: str = "train",
-        force_rebuild: bool = False,
-    ):
+class CachedDataset(Dataset):
+    def __init__(self, data: List[Tuple[Tensor, Any]]):
         super().__init__()
-        check_vision_backbone(vision_backbone)
-        self.vision_backbone = vision_backbone
-        name = vision_backbone.lower().replace("/", "").replace(":", "-")
+        self.data = data
 
-        self.root = root
-        self.dir = os.path.join(root, name)
-        self.split = split
-        self.zip_path = os.path.join(self.dir, "annotations.zip")
-        self.cache_path = os.path.join(self.dir, f"cache-{split}.pkl")
+    @classmethod
+    def load(cls, path: str) -> CachedDataset:
+        with open(path, "rb") as f:
+            data = pickle.load(f)
+        return CachedDataset(data=data)
 
-        self.data: List[Tuple[Tensor, str]] = self._load(force_rebuild=force_rebuild)
+    def save(self, path: str):
+        with open(path, "wb") as f:
+            pickle.dump(self.data, f)
 
     def __len__(self) -> int:
         return len(self.data)
@@ -71,44 +67,60 @@ class CocoCaptionsDataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[Tensor, str]:
         return self.data[idx]
 
-    def _download_cache(self):
-        url_by_split = CACHE_URLS[self.vision_backbone]
-        if not os.path.exists(self.cache_path):
-            os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
-            gdown.download(url_by_split[self.split], self.cache_path, quiet=False)
 
-    @torch.cuda.amp.autocast()
-    @torch.no_grad()
-    def _build(self, force: bool = False, cache: bool = True):
-        if force or not os.path.exists(self.cache_path):
-            print(BUILD_DATASET_MESSAGE.format(dataset="CocoCaptions"))
-            data = _compile_encoded_data(
-                vision_backbone=self.vision_backbone,
-                cache_dir=self.root,
-                split=self.split,
-            )
-            if cache:
-                with open(self.cache_path, "wb") as fb:
-                    pickle.dump(data, fb)
-
-    def _load(self, cache: bool = True, force_rebuild: bool = False):
-        if not force_rebuild and self.vision_backbone in CACHE_URLS:
-            self._download_cache()
-        self._build(force=force_rebuild, cache=cache)
-        with open(self.cache_path, "rb") as f:
-            return pickle.load(f)
-
-
-def _compile_encoded_data(
-    vision_backbone: str, cache_dir: str, split: str
-) -> List[Tuple[np.ndarray, List[str]]]:
+def build_cached_dataset(
+    data_iterable: Iterable[Image.Image, Any],
+    vision_backbone: str,
+) -> CachedDataset:
     print("Compiling encodings with text captions...")
-    pipe = coco_captions_datapipe(cache_dir=cache_dir, split=split)
+    pipe = IterableWrapper(iter(data_iterable))
     pipe = pipe.batch(32)
     pipe = ParallelImageEncoder(pipe, vision_backbone=vision_backbone)
     pipe = pipe.unbatch()
 
-    return [(encoding, captions) for encoding, captions in tqdm(pipe)]
+    data = [(encoding, captions) for encoding, captions in tqdm(pipe)]
+    return CachedDataset(data=data)
+
+
+class CocoCaptionsDataset(CachedDataset):
+    @staticmethod
+    def download(url: str) -> CocoCaptionsDataset:
+        with TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "cache.pkl")
+            gdown.download(url, path, quiet=False)
+            with open(path, "rb") as f:
+                data = pickle.load(f)
+
+        return CocoCaptionsDataset(data=data)
+
+    @classmethod
+    def build(
+        cls,
+        vision_backbone: str = "blip:base",
+        root: str = "./coco-captions",
+        split: str = "train",
+        force_rebuild: bool = False,
+    ) -> CocoCaptionsDataset:
+        check_vision_backbone(vision_backbone)
+        if force_rebuild or vision_backbone not in CACHE_URLS:
+            return _build_coco_captions(
+                vision_backbone=vision_backbone,
+                cache_dir=root,
+                split=split,
+            )
+        else:
+            url_by_split = CACHE_URLS[vision_backbone]
+            url = url_by_split[split]
+            return cls.download(url)
+
+
+def _build_coco_captions(
+    vision_backbone: str, cache_dir: str, split: str
+) -> List[Tuple[np.ndarray, List[str]]]:
+    print("Compiling encodings with text captions...")
+    pipe = coco_captions_datapipe(cache_dir=cache_dir, split=split)
+    cached_dataset = build_cached_dataset(pipe, vision_backbone=vision_backbone)
+    return CocoCaptionsDataset(data=cached_dataset.data)
 
 
 if __name__ == "__main__":
