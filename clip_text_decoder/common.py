@@ -54,10 +54,10 @@ class VisionBackbones(Enum):
     blip_base: str = "blip:base"
     clip_rn50: str = "clip:RN50"
     clip_rn101: str = "clip:RN101"
-    clip_vit_b32: str = "clip:VIT-B/32"
-    clip_vit_b16: str = "clip:VIT-B/16"
-    clip_vit_l14: str = "clip:VIT-L/14"
-    clip_vit_l14_336px: str = "clip:VIT-L/14@336px"
+    clip_vit_b32: str = "clip:ViT-B/32"
+    clip_vit_b16: str = "clip:ViT-B/16"
+    clip_vit_l14: str = "clip:ViT-L/14"
+    clip_vit_l14_336px: str = "clip:ViT-L/14@336px"
 
     @classmethod
     def list(cls):
