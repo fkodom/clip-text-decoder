@@ -6,7 +6,6 @@ from tempfile import TemporaryDirectory
 from typing import Any, Iterable, List, Tuple
 
 import gdown
-import numpy as np
 from PIL import Image
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -33,17 +32,6 @@ CACHE_URLS = {
         # https://drive.google.com/file/d/11l6b9rol53FAZe4EhvlgiwrsD4qfUUdj/view?usp=sharing
     },
 }
-CACHE_URL = {
-    "train": "https://drive.google.com/uc?id=1e-K7UIgVsvsHZEkZguzhTqEoMAUfu538",
-    # https://drive.google.com/file/d/1e-K7UIgVsvsHZEkZguzhTqEoMAUfu538/view?usp=sharing
-    "val": "https://drive.google.com/uc?id=11l6b9rol53FAZe4EhvlgiwrsD4qfUUdj",
-    # https://drive.google.com/file/d/11l6b9rol53FAZe4EhvlgiwrsD4qfUUdj/view?usp=sharing
-}
-
-BUILD_DATASET_MESSAGE = """
-Building encodings for {dataset} dataset. This may take an hour or more
-(with a GPU). The result will be cached so that subsequent calls are fast.
-"""
 
 
 class CachedDataset(Dataset):
@@ -103,27 +91,10 @@ class CocoCaptionsDataset(CachedDataset):
     ) -> CocoCaptionsDataset:
         check_vision_backbone(vision_backbone)
         if force_rebuild or vision_backbone not in CACHE_URLS:
-            return _build_coco_captions(
-                vision_backbone=vision_backbone,
-                cache_dir=root,
-                split=split,
-            )
+            pipe = coco_captions_datapipe(cache_dir=root, split=split)
+            cached_dataset = build_cached_dataset(pipe, vision_backbone=vision_backbone)
+            return CocoCaptionsDataset(data=cached_dataset.data)
         else:
             url_by_split = CACHE_URLS[vision_backbone]
             url = url_by_split[split]
             return cls.download(url)
-
-
-def _build_coco_captions(
-    vision_backbone: str, cache_dir: str, split: str
-) -> List[Tuple[np.ndarray, List[str]]]:
-    print("Compiling encodings with text captions...")
-    pipe = coco_captions_datapipe(cache_dir=cache_dir, split=split)
-    cached_dataset = build_cached_dataset(pipe, vision_backbone=vision_backbone)
-    return CocoCaptionsDataset(data=cached_dataset.data)
-
-
-if __name__ == "__main__":
-    ds = CocoCaptionsDataset(split="train", force_rebuild=True)
-    ds = CocoCaptionsDataset(split="val", force_rebuild=True)
-    # ds = ClipCocoCaptionsDataset(split="test")
