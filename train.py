@@ -3,7 +3,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import os
 import random
-from functools import lru_cache, partial
+from functools import lru_cache
 from typing import List, Tuple
 
 import evaluate
@@ -14,17 +14,17 @@ from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
 from clip_text_decoder.common import load_tokenizer
-from clip_text_decoder.dataset import CocoCaptionsDataset
+from clip_text_decoder.dataset import CachedDataset, CocoCaptionsDataset
 from clip_text_decoder.model import Decoder, DecoderInferenceModel
 
 get_tokenizer = lru_cache()(load_tokenizer)
 
 
 @lru_cache()
-def load_dataset(
+def load_coco_captions(
     vision_backbone: str = "blip:base", split: str = "train"
 ) -> CocoCaptionsDataset:
-    return CocoCaptionsDataset(vision_backbone=vision_backbone, split=split)
+    return CocoCaptionsDataset.build(vision_backbone=vision_backbone, split=split)
 
 
 def collate_fn(
@@ -54,39 +54,42 @@ def collate_fn(
     )
 
 
-def get_dataloader(vision_backbone: str, batch_size: int = 64, split: str = "train"):
+def get_dataloader(dataset: CachedDataset, batch_size: int = 64, shuffle: bool = False):
     return DataLoader(
-        dataset=load_dataset(vision_backbone=vision_backbone, split=split),
+        dataset=dataset,
         batch_size=batch_size,
         num_workers=mp.cpu_count(),
         collate_fn=collate_fn,
-        shuffle=(split == "train"),
+        shuffle=shuffle,
     )
 
 
 def show_sample_predictions(
-    model: DecoderInferenceModel, n: int = 25, beam_size: int = 1
+    model: DecoderInferenceModel,
+    dataset: CachedDataset,
+    num_samples: int = 25,
+    beam_size: int = 1,
 ):
-    ds = load_dataset(vision_backbone=model.model.vision_backbone, split="val")
-    random.seed(0)
-    for _ in range(n):
-        encoding, text = ds[random.randint(0, len(ds)) - 1]
+    torch.manual_seed(0)
+    idx = torch.randperm(len(dataset))[:num_samples].tolist()
+    subset = Subset(dataset, indices=idx)
+
+    for encoding, captions in subset:
         pred = model(torch.from_numpy(encoding), beam_size=beam_size)
         print(f"Pred: {pred}")
-        print(f"True: {text}")
+        print(f"True: {captions}")
 
 
 def compute_bleu_score(
     model: DecoderInferenceModel,
+    dataset: CachedDataset,
     beam_size: int = 1,
     num_samples: int = 2048,
     verbose: bool = True,
 ) -> float:
     torch.manual_seed(0)
-
-    ds = load_dataset(vision_backbone=model.model.vision_backbone, split="val")
-    idx = torch.randperm(len(ds))[:num_samples].tolist()
-    subset = Subset(ds, indices=idx)
+    idx = torch.randperm(len(dataset))[:num_samples].tolist()
+    subset = Subset(dataset, indices=idx)
     bleu = evaluate.load("bleu")
 
     for encoding, captions in tqdm(subset, desc="BLEU", disable=(not verbose)):
@@ -139,13 +142,15 @@ if __name__ == "__main__":
                 ),
             ],
         )
-        dataloader_fn = partial(
-            get_dataloader,
-            vision_backbone=args.vision_backbone,
-            batch_size=args.batch_size,
-        )
+
+        train_dataset = load_coco_captions(args.vision_backbone, split="train")
+        val_dataset = load_coco_captions(args.vision_backbone, split="val")
         # Train the model, and then load the best-performing state dictionary.
-        trainer.fit(model, dataloader_fn(split="train"), dataloader_fn(split="val"))
+        trainer.fit(
+            model,
+            get_dataloader(train_dataset, batch_size=args.batch_size, shuffle=True),
+            get_dataloader(val_dataset, batch_size=args.batch_size, shuffle=False),
+        )
         assert trainer.checkpoint_callback is not None
         checkpoint = torch.load(trainer.checkpoint_callback.best_model_path)
         model.load_state_dict(checkpoint["state_dict"])
@@ -165,5 +170,8 @@ if __name__ == "__main__":
     # Get sample predictions, and compute the BLEU score for the model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     decoder.to(device=device)
-    show_sample_predictions(decoder, n=25, beam_size=args.beam_size)
-    print(f"BLEU score: {compute_bleu_score(decoder, beam_size=args.beam_size):.4f}")
+
+    val_dataset = load_coco_captions(vision_backbone=args.vision_backbone, split="val")
+    show_sample_predictions(decoder, val_dataset, beam_size=args.beam_size)
+    bleu = compute_bleu_score(decoder, dataset=val_dataset, beam_size=args.beam_size)
+    print(f"BLEU score: {bleu:.4f}")
